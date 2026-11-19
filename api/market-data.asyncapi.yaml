@@ -1,0 +1,263 @@
+asyncapi: 3.0.0
+info:
+  title: Market Data Service Kafka API
+  version: 1.0.0
+  description: Контракт сообщений Kafka для market-data-service. eventId защищает от повторной обработки; correlationId связывает цепочку событий.
+defaultContentType: application/json
+servers:
+  local:
+    host: localhost:9092
+    protocol: kafka
+    description: Локальный брокер; адрес меняется при развёртывании
+channels:
+  md.price.tick:
+    address: md.price.tick
+    description: 'Отправитель: market-data-service. Получатели: tracking-service, portfolio-service. Использовать observedAt для защиты от устаревших
+      цен.'
+    servers:
+      - $ref: '#/servers/local'
+    messages:
+      PriceTickMessage:
+        $ref: '#/components/messages/PriceTickMessage'
+  md.token.discovered:
+    address: md.token.discovered
+    description: 'Отправитель: market-data-service. Получатели: analyzer-service.'
+    servers:
+      - $ref: '#/servers/local'
+    messages:
+      TokenDiscoveredMessage:
+        $ref: '#/components/messages/TokenDiscoveredMessage'
+  md.liquidity.changed:
+    address: md.liquidity.changed
+    description: 'Отправитель: market-data-service. Получатели: analyzer-service.'
+    servers:
+      - $ref: '#/servers/local'
+    messages:
+      LiquidityChangedMessage:
+        $ref: '#/components/messages/LiquidityChangedMessage'
+operations:
+  sendPriceTick:
+    action: send
+    channel:
+      $ref: '#/channels/md.price.tick'
+    messages:
+      - $ref: '#/channels/md.price.tick/messages/PriceTickMessage'
+  sendTokenDiscovered:
+    action: send
+    channel:
+      $ref: '#/channels/md.token.discovered'
+    messages:
+      - $ref: '#/channels/md.token.discovered/messages/TokenDiscoveredMessage'
+  sendLiquidityChanged:
+    action: send
+    channel:
+      $ref: '#/channels/md.liquidity.changed'
+    messages:
+      - $ref: '#/channels/md.liquidity.changed/messages/LiquidityChangedMessage'
+components:
+  messages:
+    PriceTickMessage:
+      name: PriceTick
+      title: md.price.tick
+      contentType: application/json
+      correlationId:
+        location: $message.payload#/correlationId
+      payload:
+        $ref: '#/components/schemas/PriceTick'
+      bindings:
+        kafka:
+          key:
+            type: string
+            description: Значение payload.mint
+          bindingVersion: 0.5.0
+      examples:
+        - name: example1
+          payload:
+            eventId: 11111111-1111-4111-8111-000000000008
+            eventType: md.price.tick
+            schemaVersion: 1
+            occurredAt: '2026-11-11T12:00:00Z'
+            correlationId: 11111111-1111-4111-8111-000000000009
+            payload:
+              mint: BSBkEGZfkitKTHVaC8VvCJ37Fj5r7XjssBeesic6mjwZ
+              priceUsd: 1.234e-05
+              observedAt: '2026-11-11T12:00:00Z'
+    TokenDiscoveredMessage:
+      name: TokenDiscovered
+      title: md.token.discovered
+      contentType: application/json
+      correlationId:
+        location: $message.payload#/correlationId
+      payload:
+        $ref: '#/components/schemas/TokenDiscovered'
+      bindings:
+        kafka:
+          key:
+            type: string
+            description: Значение payload.mint
+          bindingVersion: 0.5.0
+      examples:
+        - name: example1
+          payload:
+            eventId: 11111111-1111-4111-8111-000000000008
+            eventType: md.token.discovered
+            schemaVersion: 1
+            occurredAt: '2026-11-11T12:00:00Z'
+            correlationId: 11111111-1111-4111-8111-000000000009
+            payload:
+              mint: BSBkEGZfkitKTHVaC8VvCJ37Fj5r7XjssBeesic6mjwZ
+              poolAddress: 8P5BGPTwLDJC55Tua37C7yQiVM6WVXJw3LDetTjeAaxa
+              discoveredAt: '2026-11-11T12:00:00Z'
+    LiquidityChangedMessage:
+      name: LiquidityChanged
+      title: md.liquidity.changed
+      contentType: application/json
+      correlationId:
+        location: $message.payload#/correlationId
+      payload:
+        $ref: '#/components/schemas/LiquidityChanged'
+      bindings:
+        kafka:
+          key:
+            type: string
+            description: Значение payload.mint
+          bindingVersion: 0.5.0
+      examples:
+        - name: example1
+          payload:
+            eventId: 11111111-1111-4111-8111-000000000008
+            eventType: md.liquidity.changed
+            schemaVersion: 1
+            occurredAt: '2026-11-11T12:00:00Z'
+            correlationId: 11111111-1111-4111-8111-000000000009
+            payload:
+              mint: BSBkEGZfkitKTHVaC8VvCJ37Fj5r7XjssBeesic6mjwZ
+              poolAddress: 8P5BGPTwLDJC55Tua37C7yQiVM6WVXJw3LDetTjeAaxa
+              liquidityUsd: 30000
+              observedAt: '2026-11-11T12:00:00Z'
+  schemas:
+    PriceTick:
+      type: object
+      required:
+        - eventId
+        - eventType
+        - schemaVersion
+        - occurredAt
+        - correlationId
+        - payload
+      properties:
+        eventId:
+          type: string
+          format: uuid
+        eventType:
+          type: string
+          const: md.price.tick
+        schemaVersion:
+          type: integer
+          const: 1
+        occurredAt:
+          type: string
+          format: date-time
+        correlationId:
+          type: string
+          format: uuid
+        payload:
+          type: object
+          required:
+            - mint
+            - priceUsd
+            - observedAt
+          properties:
+            mint:
+              type: string
+            priceUsd:
+              type: number
+              exclusiveMinimum: 0
+              description: Цена токена в USD
+            observedAt:
+              type: string
+              format: date-time
+    TokenDiscovered:
+      type: object
+      required:
+        - eventId
+        - eventType
+        - schemaVersion
+        - occurredAt
+        - correlationId
+        - payload
+      properties:
+        eventId:
+          type: string
+          format: uuid
+        eventType:
+          type: string
+          const: md.token.discovered
+        schemaVersion:
+          type: integer
+          const: 1
+        occurredAt:
+          type: string
+          format: date-time
+        correlationId:
+          type: string
+          format: uuid
+        payload:
+          type: object
+          required:
+            - mint
+            - poolAddress
+            - discoveredAt
+          properties:
+            mint:
+              type: string
+            poolAddress:
+              type: string
+            discoveredAt:
+              type: string
+              format: date-time
+    LiquidityChanged:
+      type: object
+      required:
+        - eventId
+        - eventType
+        - schemaVersion
+        - occurredAt
+        - correlationId
+        - payload
+      properties:
+        eventId:
+          type: string
+          format: uuid
+        eventType:
+          type: string
+          const: md.liquidity.changed
+        schemaVersion:
+          type: integer
+          const: 1
+        occurredAt:
+          type: string
+          format: date-time
+        correlationId:
+          type: string
+          format: uuid
+        payload:
+          type: object
+          required:
+            - mint
+            - poolAddress
+            - liquidityUsd
+            - observedAt
+          properties:
+            mint:
+              type: string
+            poolAddress:
+              type: string
+            liquidityUsd:
+              type:
+                - number
+                - 'null'
+              minimum: 0
+            observedAt:
+              type: string
+              format: date-time

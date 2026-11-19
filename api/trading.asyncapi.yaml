@@ -1,0 +1,835 @@
+asyncapi: 3.0.0
+info:
+  title: Trading Service Kafka API
+  version: 1.0.0
+  description: Trading принимает команды копирования и исполняет их тем же обработчиком, что ручные ордера. intentId уникален в БД. Результат
+    и запись outbox сохраняются одной транзакцией; eventId сохраняется при повторной отправке. PENDING остаётся внутренним состоянием, без отдельного
+    события.
+defaultContentType: application/json
+servers:
+  local:
+    host: localhost:9092
+    protocol: kafka
+    description: Локальный брокер; адрес меняется при развёртывании
+channels:
+  tracking.copy.order.requested:
+    address: tracking.copy.order.requested
+    description: 'Отправитель: tracking-service. Получатели: trading-service. Trading проверяет владельца кошелька по userId и остаток средств; исполнение сериализуется по кошельку, повтор intentId не создаёт новый ордер.'
+    servers:
+      - $ref: '#/servers/local'
+    messages:
+      CopyOrderRequestedMessage:
+        $ref: '#/components/messages/CopyOrderRequestedMessage'
+  trade.executed:
+    address: trade.executed
+    description: 'Отправитель: trading-service. Получатели: tracking-service, portfolio-service, notification-service. Учитывать сделку один раз
+      по orderId; eventId защищает от повторной доставки. Публиковать сделки кошелька и токена в порядке исполнения.'
+    servers:
+      - $ref: '#/servers/local'
+    messages:
+      TradeExecutedMessage:
+        $ref: '#/components/messages/TradeExecutedMessage'
+  trade.rejected:
+    address: trade.rejected
+    description: 'Отправитель: trading-service. Получатели: tracking-service, notification-service.'
+    servers:
+      - $ref: '#/servers/local'
+    messages:
+      TradeRejectedMessage:
+        $ref: '#/components/messages/TradeRejectedMessage'
+  trade.failed:
+    address: trade.failed
+    description: 'Отправитель: trading-service. Получатели: tracking-service, portfolio-service, notification-service. Учитывать фактические расходы
+      один раз по orderId и signature; нулевая комиссия не создаёт расход.'
+    servers:
+      - $ref: '#/servers/local'
+    messages:
+      TradeFailedMessage:
+        $ref: '#/components/messages/TradeFailedMessage'
+operations:
+  receiveCopyOrderRequested:
+    action: receive
+    channel:
+      $ref: '#/channels/tracking.copy.order.requested'
+    messages:
+      - $ref: '#/channels/tracking.copy.order.requested/messages/CopyOrderRequestedMessage'
+    bindings:
+      kafka:
+        groupId:
+          type: string
+          enum:
+            - trading-service
+        bindingVersion: 0.5.0
+  sendTradeExecuted:
+    action: send
+    channel:
+      $ref: '#/channels/trade.executed'
+    messages:
+      - $ref: '#/channels/trade.executed/messages/TradeExecutedMessage'
+  sendTradeRejected:
+    action: send
+    channel:
+      $ref: '#/channels/trade.rejected'
+    messages:
+      - $ref: '#/channels/trade.rejected/messages/TradeRejectedMessage'
+  sendTradeFailed:
+    action: send
+    channel:
+      $ref: '#/channels/trade.failed'
+    messages:
+      - $ref: '#/channels/trade.failed/messages/TradeFailedMessage'
+components:
+  messages:
+    CopyOrderRequestedMessage:
+      name: CopyOrderRequested
+      title: tracking.copy.order.requested
+      contentType: application/json
+      correlationId:
+        location: $message.payload#/correlationId
+      payload:
+        $ref: '#/components/schemas/CopyOrderRequested'
+      bindings:
+        kafka:
+          key:
+            type: string
+            description: Строка payload.tradingWalletId + ":" + payload.mint
+          bindingVersion: 0.5.0
+      examples:
+        - name: example1
+          payload:
+            eventId: 11111111-1111-4111-8111-000000000008
+            eventType: tracking.copy.order.requested
+            schemaVersion: 1
+            occurredAt: '2026-11-11T12:00:00Z'
+            correlationId: 11111111-1111-4111-8111-000000000009
+            payload:
+              intentId: 11111111-1111-4111-8111-000000000007
+              userId: 11111111-1111-4111-8111-000000000010
+              copySettingsId: 11111111-1111-4111-8111-000000000003
+              tradingWalletId: 11111111-1111-4111-8111-000000000002
+              side: BUY
+              mint: BSBkEGZfkitKTHVaC8VvCJ37Fj5r7XjssBeesic6mjwZ
+              sourceSignature: '3333333333333333333333333333333333333333333333333333333333333333333333333333333333333333'
+              sourceInstructionIndex: 2
+              positionId: null
+              buyAmountSol: 0.1
+              sellQuantityRaw: null
+              maxSlippage: 2
+              maxPriorityFeeLamports: 100000
+              maxTipLamports: 100000
+              reason: COPY_BUY
+              exitSettings:
+                stopLossPercent: 10
+                takeProfitPercent: 25
+                maxSlippage: 2
+                maxPriorityFeeLamports: 100000
+                maxTipLamports: 100000
+        - name: example2
+          payload:
+            eventId: 11111111-1111-4111-8111-000000000008
+            eventType: tracking.copy.order.requested
+            schemaVersion: 1
+            occurredAt: '2026-11-11T12:00:00Z'
+            correlationId: 11111111-1111-4111-8111-000000000009
+            payload:
+              intentId: 11111111-1111-4111-8111-000000000007
+              userId: 11111111-1111-4111-8111-000000000010
+              copySettingsId: 11111111-1111-4111-8111-000000000003
+              tradingWalletId: 11111111-1111-4111-8111-000000000002
+              side: SELL
+              mint: BSBkEGZfkitKTHVaC8VvCJ37Fj5r7XjssBeesic6mjwZ
+              sourceSignature: null
+              sourceInstructionIndex: null
+              positionId: 11111111-1111-4111-8111-000000000006
+              buyAmountSol: null
+              sellQuantityRaw: '100000000'
+              maxSlippage: 2
+              maxPriorityFeeLamports: 100000
+              maxTipLamports: 100000
+              reason: STOP_LOSS
+              exitSettings:
+                stopLossPercent: 10
+                takeProfitPercent: 25
+                maxSlippage: 2
+                maxPriorityFeeLamports: 100000
+                maxTipLamports: 100000
+    TradeExecutedMessage:
+      name: TradeExecuted
+      title: trade.executed
+      contentType: application/json
+      correlationId:
+        location: $message.payload#/correlationId
+      payload:
+        $ref: '#/components/schemas/TradeExecuted'
+      bindings:
+        kafka:
+          key:
+            type: string
+            description: Строка payload.tradingWalletId + ":" + payload.mint
+          bindingVersion: 0.5.0
+      examples:
+        - name: example1
+          payload:
+            eventId: 11111111-1111-4111-8111-000000000008
+            eventType: trade.executed
+            schemaVersion: 1
+            occurredAt: '2026-11-11T12:00:00Z'
+            correlationId: 11111111-1111-4111-8111-000000000009
+            payload:
+              intentId: 11111111-1111-4111-8111-000000000007
+              orderId: 11111111-1111-4111-8111-000000000020
+              userId: 11111111-1111-4111-8111-000000000010
+              copySettingsId: 11111111-1111-4111-8111-000000000003
+              tradingWalletId: 11111111-1111-4111-8111-000000000002
+              mint: BSBkEGZfkitKTHVaC8VvCJ37Fj5r7XjssBeesic6mjwZ
+              side: BUY
+              positionId: null
+              quantityRaw: '100000000'
+              tokenDecimals: 6
+              amountSol: 0.1
+              executionPriceUsd: 0.15
+              signature: '3333333333333333333333333333333333333333333333333333333333333333333333333333333333333333'
+              networkFeeLamports: 105000
+              tipLamports: 100000
+              solPriceUsd: 150
+              executedAt: '2026-11-11T12:00:00Z'
+              amountUsd: 15
+        - name: example2
+          payload:
+            eventId: 11111111-1111-4111-8111-000000000028
+            eventType: trade.executed
+            schemaVersion: 1
+            occurredAt: '2026-11-11T12:05:00Z'
+            correlationId: 11111111-1111-4111-8111-000000000009
+            payload:
+              intentId: 11111111-1111-4111-8111-000000000027
+              orderId: 11111111-1111-4111-8111-000000000021
+              userId: 11111111-1111-4111-8111-000000000010
+              copySettingsId: 11111111-1111-4111-8111-000000000003
+              tradingWalletId: 11111111-1111-4111-8111-000000000002
+              mint: BSBkEGZfkitKTHVaC8VvCJ37Fj5r7XjssBeesic6mjwZ
+              side: SELL
+              positionId: 11111111-1111-4111-8111-000000000006
+              quantityRaw: '50000000'
+              tokenDecimals: 6
+              amountSol: 0.06
+              executionPriceUsd: 0.18
+              signature: '3333333333333333333333333333333333333333333333333333333333333333333333333333333333333333'
+              networkFeeLamports: 105000
+              tipLamports: 100000
+              solPriceUsd: 150
+              executedAt: '2026-11-11T12:05:00Z'
+              amountUsd: 9
+    TradeRejectedMessage:
+      name: TradeRejected
+      title: trade.rejected
+      contentType: application/json
+      correlationId:
+        location: $message.payload#/correlationId
+      payload:
+        $ref: '#/components/schemas/TradeRejected'
+      bindings:
+        kafka:
+          key:
+            type: string
+            description: Строка payload.tradingWalletId + ":" + payload.mint
+          bindingVersion: 0.5.0
+      examples:
+        - name: example1
+          payload:
+            eventId: 11111111-1111-4111-8111-000000000008
+            eventType: trade.rejected
+            schemaVersion: 1
+            occurredAt: '2026-11-11T12:00:00Z'
+            correlationId: 11111111-1111-4111-8111-000000000009
+            payload:
+              intentId: 11111111-1111-4111-8111-000000000007
+              orderId: 11111111-1111-4111-8111-000000000020
+              userId: 11111111-1111-4111-8111-000000000010
+              copySettingsId: 11111111-1111-4111-8111-000000000003
+              tradingWalletId: 11111111-1111-4111-8111-000000000002
+              mint: BSBkEGZfkitKTHVaC8VvCJ37Fj5r7XjssBeesic6mjwZ
+              side: BUY
+              positionId: null
+              reason: INSUFFICIENT_BALANCE
+    TradeFailedMessage:
+      name: TradeFailed
+      title: trade.failed
+      contentType: application/json
+      correlationId:
+        location: $message.payload#/correlationId
+      payload:
+        $ref: '#/components/schemas/TradeFailed'
+      bindings:
+        kafka:
+          key:
+            type: string
+            description: Строка payload.tradingWalletId + ":" + payload.mint
+          bindingVersion: 0.5.0
+      examples:
+        - name: example1
+          payload:
+            eventId: 11111111-1111-4111-8111-000000000008
+            eventType: trade.failed
+            schemaVersion: 1
+            occurredAt: '2026-11-11T12:00:00Z'
+            correlationId: 11111111-1111-4111-8111-000000000009
+            payload:
+              intentId: 11111111-1111-4111-8111-000000000007
+              orderId: 11111111-1111-4111-8111-000000000020
+              userId: 11111111-1111-4111-8111-000000000010
+              copySettingsId: 11111111-1111-4111-8111-000000000003
+              tradingWalletId: 11111111-1111-4111-8111-000000000002
+              mint: BSBkEGZfkitKTHVaC8VvCJ37Fj5r7XjssBeesic6mjwZ
+              side: BUY
+              positionId: null
+              reason: TRANSACTION_CONFIRMED_FAILED
+              networkFeeLamports: 105000
+              tipLamports: 0
+              solPriceUsd: 150
+              executedAt: '2026-11-11T12:00:00Z'
+              signature: '3333333333333333333333333333333333333333333333333333333333333333333333333333333333333333'
+        - name: example2
+          payload:
+            eventId: 11111111-1111-4111-8111-000000000018
+            eventType: trade.failed
+            schemaVersion: 1
+            occurredAt: '2026-11-11T12:00:00Z'
+            correlationId: 11111111-1111-4111-8111-000000000009
+            payload:
+              intentId: 11111111-1111-4111-8111-000000000007
+              orderId: 11111111-1111-4111-8111-000000000020
+              userId: 11111111-1111-4111-8111-000000000010
+              copySettingsId: 11111111-1111-4111-8111-000000000003
+              tradingWalletId: 11111111-1111-4111-8111-000000000002
+              mint: BSBkEGZfkitKTHVaC8VvCJ37Fj5r7XjssBeesic6mjwZ
+              side: BUY
+              positionId: null
+              reason: TRANSACTION_EXPIRED
+              networkFeeLamports: 0
+              tipLamports: 0
+              solPriceUsd: null
+              executedAt: null
+              signature: '3333333333333333333333333333333333333333333333333333333333333333333333333333333333333333'
+  schemas:
+    CopyOrderRequested:
+      type: object
+      required:
+        - eventId
+        - eventType
+        - schemaVersion
+        - occurredAt
+        - correlationId
+        - payload
+      properties:
+        eventId:
+          type: string
+          format: uuid
+        eventType:
+          type: string
+          const: tracking.copy.order.requested
+        schemaVersion:
+          type: integer
+          const: 1
+        occurredAt:
+          type: string
+          format: date-time
+        correlationId:
+          type: string
+          format: uuid
+        payload:
+          type: object
+          required:
+            - intentId
+            - userId
+            - copySettingsId
+            - tradingWalletId
+            - side
+            - mint
+            - sourceSignature
+            - sourceInstructionIndex
+            - positionId
+            - buyAmountSol
+            - sellQuantityRaw
+            - maxSlippage
+            - maxPriorityFeeLamports
+            - maxTipLamports
+            - reason
+            - exitSettings
+          properties:
+            intentId:
+              type: string
+              format: uuid
+            userId:
+              type: string
+              format: uuid
+            copySettingsId:
+              type: string
+              format: uuid
+            tradingWalletId:
+              type: string
+              format: uuid
+            side:
+              type: string
+              enum:
+                - BUY
+                - SELL
+            mint:
+              type: string
+            sourceSignature:
+              type:
+                - string
+                - 'null'
+            sourceInstructionIndex:
+              type:
+                - integer
+                - 'null'
+              minimum: 0
+            positionId:
+              type:
+                - string
+                - 'null'
+              format: uuid
+            buyAmountSol:
+              type:
+                - number
+                - 'null'
+              exclusiveMinimum: 0
+            sellQuantityRaw:
+              type:
+                - string
+                - 'null'
+              pattern: ^[0-9]+$
+            maxSlippage:
+              type: number
+              minimum: 0
+              maximum: 100
+              description: Допустимое проскальзывание в процентах; 2 означает 2%
+            maxPriorityFeeLamports:
+              type: integer
+              minimum: 0
+              description: Максимальная суммарная priority fee одной транзакции в lamports
+            maxTipLamports:
+              type: integer
+              minimum: 0
+              description: Максимальный tip одной транзакции в lamports
+            reason:
+              type: string
+              enum:
+                - COPY_BUY
+                - STOP_LOSS
+                - TAKE_PROFIT
+                - MANUAL_CLOSE
+            exitSettings:
+              $ref: '#/components/schemas/ExitSettings'
+          description: BUY задаёт buyAmountSol и исходную операцию; SELL — positionId и sellQuantityRaw. Неиспользуемые поля равны null.
+          oneOf:
+            - properties:
+                side:
+                  const: BUY
+                reason:
+                  const: COPY_BUY
+                buyAmountSol:
+                  type: number
+                  exclusiveMinimum: 0
+                sourceSignature:
+                  type: string
+                sourceInstructionIndex:
+                  type: integer
+                  minimum: 0
+                positionId:
+                  type: 'null'
+                sellQuantityRaw:
+                  type: 'null'
+            - properties:
+                side:
+                  const: SELL
+                reason:
+                  enum:
+                    - STOP_LOSS
+                    - TAKE_PROFIT
+                    - MANUAL_CLOSE
+                positionId:
+                  type: string
+                  format: uuid
+                sellQuantityRaw:
+                  type: string
+                  pattern: ^[1-9][0-9]*$
+                buyAmountSol:
+                  type: 'null'
+                sourceSignature:
+                  type: 'null'
+                sourceInstructionIndex:
+                  type: 'null'
+      description: Сообщение Kafka; eventId уникален, correlationId связывает цепочку обработки
+    ExitSettings:
+      type: object
+      required:
+        - stopLossPercent
+        - takeProfitPercent
+        - maxSlippage
+        - maxPriorityFeeLamports
+        - maxTipLamports
+      properties:
+        stopLossPercent:
+          type:
+            - number
+            - 'null'
+          exclusiveMinimum: 0
+          exclusiveMaximum: 100
+          description: Падение цены от цены входа в процентах; null отключает стоп-лосс
+        takeProfitPercent:
+          type:
+            - number
+            - 'null'
+          exclusiveMinimum: 0
+          description: Рост цены от цены входа в процентах; null отключает тейк-профит
+        maxSlippage:
+          type: number
+          minimum: 0
+          maximum: 100
+          description: Допустимое проскальзывание в процентах; 2 означает 2%
+        maxPriorityFeeLamports:
+          type: integer
+          minimum: 0
+          description: Максимальная суммарная priority fee одной транзакции в lamports
+        maxTipLamports:
+          type: integer
+          minimum: 0
+          description: Максимальный tip одной транзакции в lamports
+    TradeExecuted:
+      type: object
+      required:
+        - eventId
+        - eventType
+        - schemaVersion
+        - occurredAt
+        - correlationId
+        - payload
+      properties:
+        eventId:
+          type: string
+          format: uuid
+        eventType:
+          type: string
+          const: trade.executed
+        schemaVersion:
+          type: integer
+          const: 1
+        occurredAt:
+          type: string
+          format: date-time
+        correlationId:
+          type: string
+          format: uuid
+        payload:
+          type: object
+          required:
+            - intentId
+            - orderId
+            - userId
+            - copySettingsId
+            - tradingWalletId
+            - mint
+            - side
+            - positionId
+            - quantityRaw
+            - tokenDecimals
+            - amountSol
+            - executionPriceUsd
+            - signature
+            - networkFeeLamports
+            - tipLamports
+            - solPriceUsd
+            - executedAt
+            - amountUsd
+          properties:
+            intentId:
+              type: string
+              format: uuid
+            orderId:
+              type: string
+              format: uuid
+            userId:
+              type: string
+              format: uuid
+            copySettingsId:
+              type:
+                - string
+                - 'null'
+              format: uuid
+              description: null для ручных сделок; tracking обрабатывает только свои автосделки
+            tradingWalletId:
+              type: string
+              format: uuid
+            mint:
+              type: string
+            side:
+              type: string
+              enum:
+                - BUY
+                - SELL
+            positionId:
+              type:
+                - string
+                - 'null'
+              format: uuid
+              description: Для ручной сделки или первой покупки может быть null; portfolio определяет позицию по кошельку и mint. Автопродажа
+                передаёт positionId.
+            quantityRaw:
+              type: string
+              pattern: ^[1-9][0-9]*$
+              description: Фактическое количество полученных при BUY или отданных при SELL токенов в минимальных единицах
+            tokenDecimals:
+              type: integer
+              minimum: 0
+              maximum: 255
+            amountSol:
+              type: number
+              minimum: 0
+              description: Фактическая сумма SOL, отданная за токены при BUY или полученная при SELL; без сетевой комиссии, tip и затрат на создание
+                аккаунтов
+            executionPriceUsd:
+              type:
+                - number
+                - 'null'
+              exclusiveMinimum: 0
+              description: Фактическая цена токена в USD на момент исполнения; null при неизвестной оценке
+            signature:
+              type: string
+            networkFeeLamports:
+              type: integer
+              minimum: 0
+              description: Фактически списанная сетевая комиссия, включая priority fee; 0, если списания не было
+            tipLamports:
+              type: integer
+              minimum: 0
+              description: Фактически выплаченный tip, отдельно от networkFeeLamports; 0, если не выплачен
+            solPriceUsd:
+              type:
+                - number
+                - 'null'
+              format: double
+              minimum: 0
+              description: Цена SOL в USD на момент исполнения для оценки объёма и комиссий; null, если неизвестна
+            executedAt:
+              type: string
+              format: date-time
+              description: Время исполнения транзакции в блокчейне
+            amountUsd:
+              type:
+                - number
+                - 'null'
+              format: double
+              minimum: 0
+              description: Фактический объём обмена в USD без сетевой комиссии и tip; null при неизвестной оценке
+          allOf:
+            - if:
+                properties:
+                  side:
+                    const: SELL
+                  copySettingsId:
+                    type: string
+                required:
+                  - side
+                  - copySettingsId
+              then:
+                additionalProperties: true
+                properties:
+                  positionId:
+                    type: string
+                    format: uuid
+      description: Окончательно исполненная сделка. Portfolio учитывает её один раз по orderId, создаёт или изменяет позицию и сохраняет фактические
+        комиссии.
+    TradeRejected:
+      type: object
+      required:
+        - eventId
+        - eventType
+        - schemaVersion
+        - occurredAt
+        - correlationId
+        - payload
+      properties:
+        eventId:
+          type: string
+          format: uuid
+        eventType:
+          type: string
+          const: trade.rejected
+        schemaVersion:
+          type: integer
+          const: 1
+        occurredAt:
+          type: string
+          format: date-time
+        correlationId:
+          type: string
+          format: uuid
+        payload:
+          type: object
+          required:
+            - intentId
+            - orderId
+            - userId
+            - copySettingsId
+            - tradingWalletId
+            - mint
+            - side
+            - positionId
+            - reason
+          properties:
+            intentId:
+              type: string
+              format: uuid
+            orderId:
+              type: string
+              format: uuid
+            userId:
+              type: string
+              format: uuid
+            copySettingsId:
+              type:
+                - string
+                - 'null'
+              format: uuid
+              description: null для ручных сделок; tracking обрабатывает только свои автосделки
+            tradingWalletId:
+              type: string
+              format: uuid
+            mint:
+              type: string
+            side:
+              type: string
+              enum:
+                - BUY
+                - SELL
+            positionId:
+              type:
+                - string
+                - 'null'
+              format: uuid
+            reason:
+              type: string
+    TradeFailed:
+      type: object
+      required:
+        - eventId
+        - eventType
+        - schemaVersion
+        - occurredAt
+        - correlationId
+        - payload
+      properties:
+        eventId:
+          type: string
+          format: uuid
+        eventType:
+          type: string
+          const: trade.failed
+        schemaVersion:
+          type: integer
+          const: 1
+        occurredAt:
+          type: string
+          format: date-time
+        correlationId:
+          type: string
+          format: uuid
+        payload:
+          type: object
+          required:
+            - intentId
+            - orderId
+            - userId
+            - copySettingsId
+            - tradingWalletId
+            - mint
+            - side
+            - positionId
+            - reason
+            - networkFeeLamports
+            - tipLamports
+            - solPriceUsd
+            - executedAt
+            - signature
+          properties:
+            intentId:
+              type: string
+              format: uuid
+            orderId:
+              type: string
+              format: uuid
+            userId:
+              type: string
+              format: uuid
+            copySettingsId:
+              type:
+                - string
+                - 'null'
+              format: uuid
+              description: null для ручных сделок; tracking обрабатывает только свои автосделки
+            tradingWalletId:
+              type: string
+              format: uuid
+            mint:
+              type: string
+            side:
+              type: string
+              enum:
+                - BUY
+                - SELL
+            positionId:
+              type:
+                - string
+                - 'null'
+              format: uuid
+              description: Для ручной сделки или первой покупки может быть null; portfolio определяет позицию по кошельку и mint. Автопродажа
+                передаёт positionId.
+            reason:
+              type: string
+              description: Причина окончательного отказа; неизвестный результат остаётся PENDING и сюда не попадает
+            networkFeeLamports:
+              type: integer
+              minimum: 0
+              description: Фактически списанная сетевая комиссия, включая priority fee; 0, если списания не было
+            tipLamports:
+              type: integer
+              minimum: 0
+              description: Фактически выплаченный tip, отдельно от networkFeeLamports; 0, если не выплачен
+            solPriceUsd:
+              type:
+                - number
+                - 'null'
+              format: double
+              minimum: 0
+              description: Цена SOL в USD на момент исполнения для оценки объёма и комиссий; null, если неизвестна
+            executedAt:
+              type:
+                - string
+                - 'null'
+              format: date-time
+              description: Время исполнения транзакции в блокчейне; null, если транзакция не была включена
+            signature:
+              type:
+                - string
+                - 'null'
+              description: Подпись транзакции; null, если транзакция не была подписана
+          allOf:
+            - if:
+                properties:
+                  side:
+                    const: SELL
+                  copySettingsId:
+                    type: string
+                required:
+                  - side
+                  - copySettingsId
+              then:
+                additionalProperties: true
+                properties:
+                  positionId:
+                    type: string
+                    format: uuid
+      description: Окончательный отказ, не таймаут RPC. Portfolio учитывает фактически списанные комиссии как расход кошелька; не создаёт исполненную
+        сделку или новую позицию.

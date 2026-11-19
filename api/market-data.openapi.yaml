@@ -1,0 +1,362 @@
+openapi: 3.1.1
+info:
+  title: Market Data Service API
+  version: 1.0.0
+servers:
+- url: /
+paths:
+  /api/v1/token/{mint}:
+    get:
+      summary: Получить информацию о токене
+      operationId: getMarketData
+      parameters:
+      - name: mint
+        in: path
+        required: true
+        schema:
+          type: string
+        description: Адрес токена в сети Solana
+        example: BSBkEGZfkitKTHVaC8VvCJ37Fj5r7XjssBeesic6mjwZ
+      responses:
+        '200':
+          description: Информация о токене найдена
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MarketData'
+              example:
+                mint: BSBkEGZfkitKTHVaC8VvCJ37Fj5r7XjssBeesic6mjwZ
+                updatedAt: '2026-11-11T12:00:00Z'
+                price: 1.234e-05
+                liquidity: 30000
+                volume24h: 150000
+                marketCap: 123400
+                tags:
+                - meme
+        '400':
+          description: Некорректный mint-адрес
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+              example:
+                type: about:blank
+                title: Bad Request
+                status: 400
+                detail: Некорректный mint-адрес
+        '404':
+          description: Токен или рыночные данные не найдены
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+              example:
+                type: about:blank
+                title: Not Found
+                status: 404
+                detail: Токен или рыночные данные не найдены
+        '503':
+          description: Сервис или источник данных временно недоступен
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+              example:
+                type: about:blank
+                title: Service Unavailable
+                status: 503
+                detail: Сервис или источник данных временно недоступен
+        '401':
+          description: Токен доступа отсутствует или недействителен
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+              example:
+                type: about:blank
+                title: Unauthorized
+                status: 401
+                detail: Токен доступа отсутствует или недействителен
+  /api/v1/pools:
+    get:
+      summary: Получить список пулов с пагинацией
+      operationId: getPools
+      parameters:
+      - name: page
+        in: query
+        description: Номер страницы, начиная с 0
+        schema:
+          type: integer
+          minimum: 0
+          default: 0
+        example: 0
+      - name: size
+        in: query
+        description: Количество пулов на странице
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 20
+        example: 20
+      responses:
+        '200':
+          description: Список пулов; пустой content, если страница за пределами списка
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PagePool'
+              example:
+                content:
+                - address: 8P5BGPTwLDJC55Tua37C7yQiVM6WVXJw3LDetTjeAaxa
+                  tokenA: BSBkEGZfkitKTHVaC8VvCJ37Fj5r7XjssBeesic6mjwZ
+                  tokenB: Fjyq3ffGsQjb3YEvdPjQAZiCGCh1hYftWvhReL9f9BzT
+                  liquidity: 30000
+                  dex: RAYDIUM
+                page: 0
+                size: 20
+                totalElements: 1
+                totalPages: 1
+        '400':
+          description: Некорректные параметры пагинации
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+              example:
+                type: about:blank
+                title: Bad Request
+                status: 400
+                detail: Некорректные параметры пагинации
+        '503':
+          description: Сервис или источник данных временно недоступен
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+              example:
+                type: about:blank
+                title: Service Unavailable
+                status: 503
+                detail: Сервис или источник данных временно недоступен
+        '401':
+          description: Токен доступа отсутствует или недействителен
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+              example:
+                type: about:blank
+                title: Unauthorized
+                status: 401
+                detail: Токен доступа отсутствует или недействителен
+  /internal/v1/tokens/{mint}:
+    get:
+      summary: Получить данные токена для другого сервиса
+      operationId: getInternalTokenData
+      parameters:
+      - name: mint
+        in: path
+        required: true
+        schema:
+          type: string
+        description: Адрес токена в сети Solana
+        example: BSBkEGZfkitKTHVaC8VvCJ37Fj5r7XjssBeesic6mjwZ
+      responses:
+        '200':
+          description: Информация о токене найдена
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MarketData'
+              example:
+                mint: BSBkEGZfkitKTHVaC8VvCJ37Fj5r7XjssBeesic6mjwZ
+                updatedAt: '2026-11-11T12:00:00Z'
+                price: 1.234e-05
+                liquidity: 30000
+                volume24h: 150000
+                marketCap: 123400
+                tags:
+                - meme
+        '400':
+          description: Некорректный mint-адрес
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+              example:
+                type: about:blank
+                title: Bad Request
+                status: 400
+                detail: Некорректный mint-адрес
+        '404':
+          description: Токен или рыночные данные не найдены
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+              example:
+                type: about:blank
+                title: Not Found
+                status: 404
+                detail: Токен или рыночные данные не найдены
+        '503':
+          description: Сервис или источник данных временно недоступен
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+              example:
+                type: about:blank
+                title: Service Unavailable
+                status: 503
+                detail: Сервис или источник данных временно недоступен
+        '401':
+          description: Токен доступа отсутствует или недействителен
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+              example:
+                type: about:blank
+                title: Unauthorized
+                status: 401
+                detail: Токен доступа отсутствует или недействителен
+      tags:
+      - internal
+components:
+  schemas:
+    MarketData:
+      type: object
+      required:
+      - mint
+      - updatedAt
+      - price
+      - liquidity
+      - volume24h
+      - marketCap
+      - tags
+      properties:
+        mint:
+          type: string
+          description: Адрес токена
+        updatedAt:
+          type: string
+          format: date-time
+        price:
+          type:
+          - number
+          - 'null'
+          format: double
+          minimum: 0
+          description: Цена токена в USD
+        liquidity:
+          type:
+          - number
+          - 'null'
+          format: double
+          minimum: 0
+          description: Суммарная ликвидность известных пулов токена в USD
+        volume24h:
+          type:
+          - number
+          - 'null'
+          format: double
+          minimum: 0
+          description: Суммарный объём торгов известных пулов за 24 часа в USD
+        marketCap:
+          type:
+          - number
+          - 'null'
+          format: double
+          minimum: 0
+          description: Капитализация токена в USD
+        tags:
+          type: array
+          items:
+            type: string
+    PagePool:
+      type: object
+      required:
+      - content
+      - page
+      - size
+      - totalElements
+      - totalPages
+      properties:
+        content:
+          type: array
+          items:
+            $ref: '#/components/schemas/Pool'
+        page:
+          type: integer
+          minimum: 0
+          description: Номер страницы, начиная с 0
+        size:
+          type: integer
+          minimum: 1
+          maximum: 100
+          description: Запрошенный размер страницы
+        totalElements:
+          type: integer
+          minimum: 0
+        totalPages:
+          type: integer
+          minimum: 0
+          description: Округлённое вверх totalElements / size
+    Pool:
+      type: object
+      required:
+      - address
+      - tokenA
+      - tokenB
+      - liquidity
+      - dex
+      properties:
+        address:
+          type: string
+          description: Адрес пула
+        tokenA:
+          type: string
+          description: Mint-адрес первого токена
+        tokenB:
+          type: string
+          description: Mint-адрес второго токена
+        liquidity:
+          type:
+          - number
+          - 'null'
+          format: double
+          minimum: 0
+          description: Ликвидность этого пула в USD
+        dex:
+          type: string
+          enum:
+          - RAYDIUM
+          - ORCA
+          - METEORA
+          - PUMP_FUN
+    Problem:
+      type: object
+      required:
+      - type
+      - title
+      - status
+      - detail
+      properties:
+        type:
+          type: string
+          format: uri
+        title:
+          type: string
+        status:
+          type: integer
+        detail:
+          type: string
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+security:
+- bearerAuth: []

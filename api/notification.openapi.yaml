@@ -1,0 +1,954 @@
+openapi: 3.1.1
+info:
+  title: Notification Service API
+  version: 1.0.0
+servers:
+  - url: /
+security:
+  - bearerAuth: []
+paths:
+  /api/v1/notifications:
+    get:
+      summary: Получить историю своих уведомлений
+      operationId: getNotifications
+      description: Сначала новые по createdAt, затем по id. Пользователь определяется по JWT; чужие уведомления недоступны.
+      parameters:
+        - name: type
+          in: query
+          required: false
+          schema:
+            type: string
+            enum:
+              - TRADE_EXECUTED
+              - TRADE_REJECTED
+              - TRADE_FAILED
+              - WALLET_ACTIVITY
+              - RUG_ALERT
+              - TEST
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum:
+              - PENDING
+              - SENT
+              - FAILED
+              - SKIPPED
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+          example: 0
+        - name: size
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+          example: 20
+      responses:
+        '200':
+          description: Страница уведомлений; content пустой, если записей нет
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationPage'
+              examples:
+                sent:
+                  value:
+                    content:
+                      - id: 11111111-1111-4111-8111-000000000040
+                        type: TRADE_EXECUTED
+                        sourceEventId: 11111111-1111-4111-8111-000000000008
+                        channel: TELEGRAM
+                        title: Покупка исполнена
+                        text: Куплено 100 токенов за 0.1 SOL.
+                        mint: BSBkEGZfkitKTHVaC8VvCJ37Fj5r7XjssBeesic6mjwZ
+                        orderId: 11111111-1111-4111-8111-000000000020
+                        status: SENT
+                        attempts: 1
+                        nextAttemptAt: null
+                        sentAt: '2026-11-19T12:00:00Z'
+                        telegramMessageId: 42
+                        reason: null
+                        createdAt: '2026-11-19T12:00:00Z'
+                    page: 0
+                    size: 20
+                    totalElements: 1
+                    totalPages: 1
+                retryScheduled:
+                  value:
+                    content:
+                      - id: 11111111-1111-4111-8111-000000000040
+                        type: TRADE_EXECUTED
+                        sourceEventId: 11111111-1111-4111-8111-000000000008
+                        channel: TELEGRAM
+                        title: Покупка исполнена
+                        text: Куплено 100 токенов за 0.1 SOL.
+                        mint: BSBkEGZfkitKTHVaC8VvCJ37Fj5r7XjssBeesic6mjwZ
+                        orderId: 11111111-1111-4111-8111-000000000020
+                        status: PENDING
+                        attempts: 1
+                        nextAttemptAt: '2026-11-19T12:00:30Z'
+                        sentAt: null
+                        telegramMessageId: null
+                        reason: RATE_LIMITED
+                        createdAt: '2026-11-19T12:00:00Z'
+                    page: 0
+                    size: 20
+                    totalElements: 1
+                    totalPages: 1
+                failed:
+                  value:
+                    content:
+                      - id: 11111111-1111-4111-8111-000000000040
+                        type: TRADE_EXECUTED
+                        sourceEventId: 11111111-1111-4111-8111-000000000008
+                        channel: TELEGRAM
+                        title: Покупка исполнена
+                        text: Куплено 100 токенов за 0.1 SOL.
+                        mint: BSBkEGZfkitKTHVaC8VvCJ37Fj5r7XjssBeesic6mjwZ
+                        orderId: 11111111-1111-4111-8111-000000000020
+                        status: FAILED
+                        attempts: 1
+                        nextAttemptAt: null
+                        sentAt: null
+                        telegramMessageId: null
+                        reason: BOT_BLOCKED
+                        createdAt: '2026-11-19T12:00:00Z'
+                    page: 0
+                    size: 20
+                    totalElements: 1
+                    totalPages: 1
+                skipped:
+                  value:
+                    content:
+                      - id: 11111111-1111-4111-8111-000000000040
+                        type: TRADE_EXECUTED
+                        sourceEventId: 11111111-1111-4111-8111-000000000008
+                        channel: TELEGRAM
+                        title: Покупка исполнена
+                        text: Куплено 100 токенов за 0.1 SOL.
+                        mint: BSBkEGZfkitKTHVaC8VvCJ37Fj5r7XjssBeesic6mjwZ
+                        orderId: 11111111-1111-4111-8111-000000000020
+                        status: SKIPPED
+                        attempts: 0
+                        nextAttemptAt: null
+                        sentAt: null
+                        telegramMessageId: null
+                        reason: TELEGRAM_NOT_CONNECTED
+                        createdAt: '2026-11-19T12:00:00Z'
+                    page: 0
+                    size: 20
+                    totalElements: 1
+                    totalPages: 1
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /api/v1/notifications/test:
+    post:
+      summary: Проверить доставку в свой Telegram
+      operationId: sendTestNotification
+      description: Без тела запроса. Создаёт тестовое сообщение для текущего пользователя; флаги типов и enabled на тест не влияют. Получателя
+        и текст задаёт сервер. Доставка асинхронная.
+      responses:
+        '202':
+          description: Тест поставлен в очередь
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Notification'
+              example:
+                id: 11111111-1111-4111-8111-000000000040
+                type: TEST
+                sourceEventId: null
+                channel: TELEGRAM
+                title: Проверка уведомлений
+                text: Telegram подключён к TokenHook.
+                mint: null
+                orderId: null
+                status: PENDING
+                attempts: 0
+                nextAttemptAt: '2026-11-19T12:00:00Z'
+                sentAt: null
+                telegramMessageId: null
+                reason: null
+                createdAt: '2026-11-19T12:00:00Z'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /api/v1/notification-settings:
+    get:
+      summary: Получить свои настройки уведомлений
+      operationId: getNotificationSettings
+      responses:
+        '200':
+          description: Текущие настройки или первоначальные значения
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationSettings'
+              example:
+                enabled: true
+                tradesEnabled: true
+                walletActivityEnabled: true
+                rugAlertsEnabled: true
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+    patch:
+      summary: Изменить свои настройки уведомлений
+      operationId: updateNotificationSettings
+      description: Меняются только переданные поля. Перед каждой отправкой настройки проверяются повторно; отключённые ещё не начатые доставки
+        переходят в SKIPPED.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NotificationSettingsUpdate'
+            example:
+              walletActivityEnabled: false
+      responses:
+        '200':
+          description: Настройки сохранены
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationSettings'
+              example:
+                enabled: true
+                tradesEnabled: true
+                walletActivityEnabled: false
+                rugAlertsEnabled: true
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /api/v1/notifications/telegram:
+    get:
+      summary: Получить состояние своей привязки Telegram
+      operationId: getTelegramConnection
+      responses:
+        '200':
+          description: Текущее состояние привязки
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TelegramConnection'
+              examples:
+                connected:
+                  value:
+                    connected: true
+                    chatId: '123456789'
+                    telegramUsername: example_user
+                    linkedAt: '2026-11-19T12:00:00Z'
+                notConnected:
+                  value:
+                    connected: false
+                    chatId: null
+                    telegramUsername: null
+                    linkedAt: null
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+    delete:
+      summary: Отвязать свой Telegram
+      operationId: deleteTelegramConnection
+      description: Отменяет привязку и активную ссылку подключения. Ещё не начатые доставки пропускаются; повторное удаление также возвращает
+        204.
+      responses:
+        '204':
+          description: Telegram отвязан
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /api/v1/notifications/telegram/link:
+    post:
+      summary: Создать одноразовую ссылку привязки Telegram
+      operationId: createTelegramLink
+      description: Без тела запроса. Пользователь открывает ссылку и нажимает Start у бота. Привязка создаётся по проверенному webhook, а не по
+        chatId от клиента. До успешной новой привязки существующая сохраняется.
+      responses:
+        '201':
+          description: Одноразовая ссылка создана
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TelegramLink'
+              example:
+                url: https://t.me/tokenhook_example_bot?start=AbCdEf0123456789_AbCdEf0123456789_
+                expiresAt: '2026-11-19T12:10:00Z'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /api/v1/notifications/watchlist:
+    get:
+      summary: Получить свои токены для уведомлений о риске
+      operationId: getNotificationWatchlist
+      parameters:
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+          example: 0
+        - name: size
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+          example: 20
+      responses:
+        '200':
+          description: Страница токенов, сначала новые по createdAt, затем по mint
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WatchlistPage'
+              example:
+                content:
+                  - mint: BSBkEGZfkitKTHVaC8VvCJ37Fj5r7XjssBeesic6mjwZ
+                    createdAt: '2026-11-19T12:00:00Z'
+                page: 0
+                size: 20
+                totalElements: 1
+                totalPages: 1
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /api/v1/notifications/watchlist/{mint}:
+    parameters:
+      - name: mint
+        in: path
+        required: true
+        schema:
+          type: string
+          pattern: ^[1-9A-HJ-NP-Za-km-z]{32,44}$
+        description: Адрес токена в Solana
+        example: BSBkEGZfkitKTHVaC8VvCJ37Fj5r7XjssBeesic6mjwZ
+    put:
+      summary: Подписаться на уведомления о риске токена
+      operationId: addNotificationWatchlistToken
+      description: Без тела запроса. Уникальна пара пользователь + mint; повтор не создаёт дубликат.
+      responses:
+        '201':
+          description: Токен добавлен
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WatchlistItem'
+              example:
+                mint: BSBkEGZfkitKTHVaC8VvCJ37Fj5r7XjssBeesic6mjwZ
+                createdAt: '2026-11-19T12:00:00Z'
+        '200':
+          description: Токен уже был в watchlist
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WatchlistItem'
+              example:
+                mint: BSBkEGZfkitKTHVaC8VvCJ37Fj5r7XjssBeesic6mjwZ
+                createdAt: '2026-11-19T12:00:00Z'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+    delete:
+      summary: Отписаться от уведомлений о риске токена
+      operationId: deleteNotificationWatchlistToken
+      description: Повторное удаление также возвращает 204; ещё не начатые RUG_ALERT для этого токена пропускаются.
+      responses:
+        '204':
+          description: Подписка удалена
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /webhooks/telegram:
+    post:
+      tags:
+        - webhook
+      summary: Принять обновление от Telegram
+      operationId: receiveTelegramUpdate
+      description: Секрет проверяется до обработки; update_id дедуплицируется. Только /start с действующим одноразовым токеном в личном чате привязывает
+        пользователя. Один Telegram-чат нельзя привязать к двум аккаунтам. Неизвестный или истёкший токен не меняет привязку.
+      security:
+        - telegramWebhookSecret: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TelegramUpdate'
+            example:
+              update_id: 123456789
+              message:
+                message_id: 10
+                chat:
+                  id: 123456789
+                  type: private
+                from:
+                  id: 123456789
+                  is_bot: false
+                  username: example_user
+                text: /start AbCdEf0123456789_AbCdEf0123456789_
+      responses:
+        '200':
+          description: Обновление надёжно сохранено, уже обработано или не требует обработки; повторная доставка безопасна
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/TelegramUnauthorized'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+    telegramWebhookSecret:
+      type: apiKey
+      in: header
+      name: X-Telegram-Bot-Api-Secret-Token
+      description: Случайный секрет, настроенный через Telegram setWebhook; не пользовательский JWT и не токен бота
+  responses:
+    BadRequest:
+      description: Некорректные параметры или тело запроса
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          example:
+            type: about:blank
+            title: Bad Request
+            status: 400
+            detail: Проверьте параметры запроса и обязательные поля
+    Unauthorized:
+      description: Токен доступа отсутствует или недействителен
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          example:
+            type: about:blank
+            title: Unauthorized
+            status: 401
+            detail: Требуется действительный токен доступа
+    TelegramUnauthorized:
+      description: Отсутствует или неверен секрет webhook Telegram
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          example:
+            type: about:blank
+            title: Unauthorized
+            status: 401
+            detail: Неверный секрет webhook
+    Conflict:
+      description: Telegram не привязан
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          example:
+            type: about:blank
+            title: Conflict
+            status: 409
+            detail: Сначала привяжите личный Telegram через одноразовую ссылку
+    TooManyRequests:
+      description: Превышен лимит запросов пользователя
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          example:
+            type: about:blank
+            title: Too Many Requests
+            status: 429
+            detail: Повторите запрос через время, указанное в Retry-After
+      headers:
+        Retry-After:
+          description: Число секунд до следующего запроса
+          schema:
+            type: integer
+            minimum: 1
+          example: 30
+    Unavailable:
+      description: Не удалось надёжно сохранить запрос или прочитать данные
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          example:
+            type: about:blank
+            title: Service Unavailable
+            status: 503
+            detail: Сервис временно недоступен
+  schemas:
+    NotificationSettings:
+      type: object
+      required:
+        - enabled
+        - tradesEnabled
+        - walletActivityEnabled
+        - rugAlertsEnabled
+      properties:
+        enabled:
+          type: boolean
+          description: Включена отправка в Telegram; история уведомлений сохраняется и при отключении
+        tradesEnabled:
+          type: boolean
+          description: Уведомления об исполненных, отклонённых и неуспешных ордерах
+        walletActivityEnabled:
+          type: boolean
+          description: Операции отслеживаемых кошельков; учитывается также настройка конкретного кошелька в tracking
+        rugAlertsEnabled:
+          type: boolean
+          description: Риски токенов, добавленных пользователем в watchlist
+      description: Первоначально все флаги true; отправка возможна только после привязки Telegram.
+    NotificationSettingsUpdate:
+      type: object
+      properties:
+        enabled:
+          type: boolean
+          description: Включена отправка в Telegram; история уведомлений сохраняется и при отключении
+        tradesEnabled:
+          type: boolean
+          description: Уведомления об исполненных, отклонённых и неуспешных ордерах
+        walletActivityEnabled:
+          type: boolean
+          description: Операции отслеживаемых кошельков; учитывается также настройка конкретного кошелька в tracking
+        rugAlertsEnabled:
+          type: boolean
+          description: Риски токенов, добавленных пользователем в watchlist
+      description: Меняются только переданные флаги; null не допускается.
+      minProperties: 1
+      additionalProperties: false
+    TelegramConnection:
+      type: object
+      required:
+        - connected
+        - chatId
+        - telegramUsername
+        - linkedAt
+      properties:
+        connected:
+          type: boolean
+          description: Привязка сохранена; не гарантирует, что бот не заблокирован пользователем
+        chatId:
+          type:
+            - string
+            - 'null'
+          description: Идентификатор личного чата; null без привязки
+        telegramUsername:
+          type:
+            - string
+            - 'null'
+          description: Может отсутствовать даже у подключённого пользователя
+        linkedAt:
+          type:
+            - string
+            - 'null'
+          description: Время привязки; null без привязки
+          format: date-time
+      allOf:
+        - if:
+            properties:
+              connected:
+                const: true
+            required:
+              - connected
+          then:
+            additionalProperties: true
+            properties:
+              chatId:
+                type: string
+                pattern: ^[1-9][0-9]*$
+              linkedAt:
+                type: string
+                format: date-time
+        - if:
+            properties:
+              connected:
+                const: false
+            required:
+              - connected
+          then:
+            additionalProperties: true
+            properties:
+              chatId:
+                type: 'null'
+              telegramUsername:
+                type: 'null'
+              linkedAt:
+                type: 'null'
+    TelegramLink:
+      type: object
+      required:
+        - url
+        - expiresAt
+      properties:
+        url:
+          type: string
+          format: uri
+          description: Одноразовая ссылка на бота с непрозрачным случайным start-токеном; не содержит userId или JWT
+        expiresAt:
+          type: string
+          description: Ссылка действует 10 минут; новая ссылка отменяет прежнюю неиспользованную
+          format: date-time
+    Notification:
+      type: object
+      required:
+        - id
+        - type
+        - sourceEventId
+        - channel
+        - title
+        - text
+        - mint
+        - orderId
+        - status
+        - attempts
+        - nextAttemptAt
+        - sentAt
+        - telegramMessageId
+        - reason
+        - createdAt
+      properties:
+        id:
+          type: string
+          format: uuid
+        type:
+          type: string
+          enum:
+            - TRADE_EXECUTED
+            - TRADE_REJECTED
+            - TRADE_FAILED
+            - WALLET_ACTIVITY
+            - RUG_ALERT
+            - TEST
+        sourceEventId:
+          type:
+            - string
+            - 'null'
+          description: Идентификатор входящего события; null для теста
+          format: uuid
+        channel:
+          type: string
+          const: TELEGRAM
+        title:
+          type: string
+        text:
+          type: string
+          description: Текст сообщения без необходимости интерпретации HTML или Markdown
+        mint:
+          type:
+            - string
+            - 'null'
+          description: Связанный токен; null, если отсутствует
+        orderId:
+          type:
+            - string
+            - 'null'
+          description: Связанный ордер; null, если отсутствует
+          format: uuid
+        status:
+          type: string
+          enum:
+            - PENDING
+            - SENT
+            - FAILED
+            - SKIPPED
+          description: PENDING — ожидает отправки или повтора; SENT — Telegram подтвердил приём, не прочтение; FAILED — постоянная ошибка или
+            исчерпан лимит попыток; SKIPPED — отправка отключена либо Telegram не привязан
+        attempts:
+          type: integer
+          minimum: 0
+          description: Число обращений к Telegram API
+        nextAttemptAt:
+          type:
+            - string
+            - 'null'
+          description: Время следующей попытки; null для завершённой доставки
+          format: date-time
+        sentAt:
+          type:
+            - string
+            - 'null'
+          description: Время подтверждённого приёма Telegram; иначе null
+          format: date-time
+        telegramMessageId:
+          type:
+            - integer
+            - 'null'
+          minimum: 1
+          description: message_id, возвращённый Telegram; иначе null
+        reason:
+          type:
+            - string
+            - 'null'
+          description: Код последней ошибки или причины пропуска; null при отсутствии
+        createdAt:
+          type: string
+          format: date-time
+      allOf:
+        - if:
+            properties:
+              status:
+                const: PENDING
+            required:
+              - status
+          then:
+            additionalProperties: true
+            properties:
+              sentAt:
+                type: 'null'
+              telegramMessageId:
+                type: 'null'
+              nextAttemptAt:
+                type: string
+                format: date-time
+        - if:
+            properties:
+              status:
+                const: SENT
+            required:
+              - status
+          then:
+            additionalProperties: true
+            properties:
+              sentAt:
+                type: string
+                format: date-time
+              telegramMessageId:
+                type: integer
+                minimum: 1
+              attempts:
+                type: integer
+                minimum: 1
+              nextAttemptAt:
+                type: 'null'
+              reason:
+                type: 'null'
+        - if:
+            properties:
+              status:
+                const: FAILED
+            required:
+              - status
+          then:
+            additionalProperties: true
+            properties:
+              sentAt:
+                type: 'null'
+              telegramMessageId:
+                type: 'null'
+              attempts:
+                type: integer
+                minimum: 1
+              nextAttemptAt:
+                type: 'null'
+              reason:
+                type: string
+                minLength: 1
+        - if:
+            properties:
+              status:
+                const: SKIPPED
+            required:
+              - status
+          then:
+            additionalProperties: true
+            properties:
+              sentAt:
+                type: 'null'
+              telegramMessageId:
+                type: 'null'
+              nextAttemptAt:
+                type: 'null'
+              reason:
+                type: string
+                minLength: 1
+    NotificationPage:
+      type: object
+      required:
+        - content
+        - page
+        - size
+        - totalElements
+        - totalPages
+      properties:
+        content:
+          type: array
+          items:
+            $ref: '#/components/schemas/Notification'
+        page:
+          type: integer
+          minimum: 0
+          description: Номер страницы, начиная с 0
+        size:
+          type: integer
+          minimum: 1
+          maximum: 100
+          description: Запрошенный размер страницы; фактическое число элементов — длина content
+        totalElements:
+          type: integer
+          minimum: 0
+          description: Число уведомлений текущего пользователя с учётом фильтров
+        totalPages:
+          type: integer
+          minimum: 0
+          description: Число страниц; 0, если элементов нет
+    WatchlistPage:
+      type: object
+      required:
+        - content
+        - page
+        - size
+        - totalElements
+        - totalPages
+      properties:
+        content:
+          type: array
+          items:
+            $ref: '#/components/schemas/WatchlistItem'
+        page:
+          type: integer
+          minimum: 0
+          description: Номер страницы, начиная с 0
+        size:
+          type: integer
+          minimum: 1
+          maximum: 100
+          description: Запрошенный размер страницы; фактическое число элементов — длина content
+        totalElements:
+          type: integer
+          minimum: 0
+          description: Число токенов в собственном watchlist
+        totalPages:
+          type: integer
+          minimum: 0
+          description: Число страниц; 0, если элементов нет
+    WatchlistItem:
+      type: object
+      required:
+        - mint
+        - createdAt
+      properties:
+        mint:
+          type: string
+          description: Адрес токена в Solana
+        createdAt:
+          type: string
+          format: date-time
+    TelegramUpdate:
+      type: object
+      required:
+        - update_id
+      properties:
+        update_id:
+          type: integer
+          minimum: 0
+          description: Идентификатор обновления Telegram; используется для дедупликации
+        message:
+          $ref: '#/components/schemas/TelegramMessage'
+      description: Минимальная часть Telegram Update для привязки. Дополнительные поля и неизвестные типы обновлений допускаются и игнорируются.
+    TelegramMessage:
+      type: object
+      required:
+        - message_id
+        - chat
+      properties:
+        message_id:
+          type: integer
+          minimum: 1
+        chat:
+          $ref: '#/components/schemas/TelegramChat'
+        from:
+          $ref: '#/components/schemas/TelegramUser'
+        text:
+          type: string
+      description: Обрабатывается /start <token> от пользователя в личном чате; остальные сообщения не меняют привязку.
+    TelegramChat:
+      type: object
+      required:
+        - id
+        - type
+      properties:
+        id:
+          type: integer
+          format: int64
+        type:
+          type: string
+          enum:
+            - private
+            - group
+            - supergroup
+            - channel
+    TelegramUser:
+      type: object
+      required:
+        - id
+        - is_bot
+      properties:
+        id:
+          type: integer
+          format: int64
+        is_bot:
+          type: boolean
+        username:
+          type: string
+    Problem:
+      type: object
+      required:
+        - type
+        - title
+        - status
+        - detail
+      properties:
+        type:
+          type: string
+          format: uri
+        title:
+          type: string
+        status:
+          type: integer
+        detail:
+          type: string

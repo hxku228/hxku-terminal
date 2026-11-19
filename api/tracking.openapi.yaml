@@ -1,0 +1,1175 @@
+openapi: 3.1.1
+info:
+  title: Tracking Service API
+  version: 1.0.0
+servers:
+- url: /
+security:
+- bearerAuth: []
+paths:
+  /api/v1/tracking/wallets:
+    post:
+      summary: Добавить кошелёк в отслеживание
+      operationId: createTrackedWallet
+      parameters:
+      - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TrackedWalletRequest'
+            examples:
+              default:
+                $ref: '#/components/examples/CreateTrackedWallet'
+      responses:
+        '201':
+          description: Кошелёк добавлен
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TrackedWallet'
+              examples:
+                default:
+                  $ref: '#/components/examples/TrackedWallet'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '409':
+          $ref: '#/components/responses/Conflict'
+    get:
+      summary: Получить свои отслеживаемые кошельки
+      operationId: getTrackedWallets
+      parameters:
+      - name: page
+        in: query
+        description: Номер страницы, начиная с 0
+        schema:
+          type: integer
+          minimum: 0
+          default: 0
+        example: 0
+      - name: size
+        in: query
+        description: Размер страницы
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 20
+        example: 20
+      responses:
+        '200':
+          description: Страница кошельков
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TrackedWalletPage'
+              examples:
+                default:
+                  $ref: '#/components/examples/TrackedWalletPage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /api/v1/tracking/wallets/{id}:
+    parameters:
+    - name: id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+      example: 11111111-1111-4111-8111-000000000001
+    get:
+      summary: Получить свой отслеживаемый кошелёк
+      operationId: getTrackedWallet
+      responses:
+        '200':
+          description: Кошелёк найден
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TrackedWallet'
+              examples:
+                default:
+                  $ref: '#/components/examples/TrackedWallet'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    patch:
+      summary: Изменить подпись и уведомления
+      operationId: updateTrackedWallet
+      description: Переданные поля меняются, остальные сохраняются. Адрес кошелька неизменяемый.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TrackedWalletUpdate'
+            examples:
+              default:
+                $ref: '#/components/examples/TrackedWalletUpdate'
+      responses:
+        '200':
+          description: Кошелёк изменён
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TrackedWallet'
+              examples:
+                default:
+                  $ref: '#/components/examples/TrackedWalletUpdated'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      summary: Удалить кошелёк из отслеживания
+      operationId: deleteTrackedWallet
+      responses:
+        '204':
+          description: Отслеживание удалено; автопокупки выключены, защита открытых позиций сохранена
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/v1/tracking/activity:
+    get:
+      summary: Получить ленту операций своих отслеживаемых кошельков
+      operationId: getWalletActivity
+      parameters:
+      - name: page
+        in: query
+        description: Номер страницы, начиная с 0
+        schema:
+          type: integer
+          minimum: 0
+          default: 0
+        example: 0
+      - name: size
+        in: query
+        description: Размер страницы
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 20
+        example: 20
+      - name: trackedWalletId
+        in: query
+        schema:
+          type: string
+          format: uuid
+        example: 11111111-1111-4111-8111-000000000001
+      responses:
+        '200':
+          description: Страница операций
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WalletActivityPage'
+              examples:
+                default:
+                  $ref: '#/components/examples/WalletActivityPage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /api/v1/tracking/calls:
+    post:
+      summary: Опубликовать кол по токену
+      operationId: createCall
+      description: Сведения о токене запрашиваются у market-data. Кол не запускает автопокупку.
+      parameters:
+      - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CallRequest'
+            examples:
+              default:
+                $ref: '#/components/examples/CreateCall'
+      responses:
+        '201':
+          description: Кол опубликован
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Call'
+              examples:
+                default:
+                  $ref: '#/components/examples/Call'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+        '409':
+          $ref: '#/components/responses/Conflict'
+    get:
+      summary: Получить общую ленту колов
+      operationId: getCalls
+      parameters:
+      - name: page
+        in: query
+        description: Номер страницы, начиная с 0
+        schema:
+          type: integer
+          minimum: 0
+          default: 0
+        example: 0
+      - name: size
+        in: query
+        description: Размер страницы
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 20
+        example: 20
+      responses:
+        '200':
+          description: Страница колов
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CallPage'
+              examples:
+                default:
+                  $ref: '#/components/examples/CallPage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /api/v1/tracking/calls/{id}:
+    parameters:
+    - name: id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+      example: 11111111-1111-4111-8111-000000000004
+    delete:
+      summary: Удалить свой кол
+      operationId: deleteCall
+      responses:
+        '204':
+          description: Кол удалён
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/v1/tracking/wallets/{id}/copy-settings:
+    parameters:
+    - name: id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+      example: 11111111-1111-4111-8111-000000000001
+    get:
+      summary: Получить настройки автопокупки
+      operationId: getCopySettings
+      responses:
+        '200':
+          description: Настройки найдены
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CopySettings'
+              examples:
+                default:
+                  $ref: '#/components/examples/CopySettings'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    put:
+      summary: Создать или полностью заменить настройки автопокупки
+      operationId: putCopySettings
+      description: Полная замена настроек; бюджет и счётчики не сбрасываются. При enabled=true trading проверяет торговый кошелёк. Новые условия
+        применяются к новым покупкам.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CopySettingsRequest'
+            examples:
+              default:
+                $ref: '#/components/examples/CopySettingsRequest'
+      responses:
+        '201':
+          description: Настройки созданы
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CopySettings'
+              examples:
+                default:
+                  $ref: '#/components/examples/CopySettings'
+        '200':
+          description: Настройки сохранены
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CopySettings'
+              examples:
+                default:
+                  $ref: '#/components/examples/CopySettings'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /api/v1/tracking/copied-positions:
+    get:
+      summary: Получить свои скопированные позиции
+      operationId: getCopiedPositions
+      parameters:
+      - name: page
+        in: query
+        description: Номер страницы, начиная с 0
+        schema:
+          type: integer
+          minimum: 0
+          default: 0
+        example: 0
+      - name: size
+        in: query
+        description: Размер страницы
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 20
+        example: 20
+      responses:
+        '200':
+          description: Страница позиций
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CopiedPositionPage'
+              examples:
+                default:
+                  $ref: '#/components/examples/CopiedPositionPage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /api/v1/tracking/copied-positions/{id}/exit-settings:
+    parameters:
+    - name: id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+      example: 11111111-1111-4111-8111-000000000006
+    patch:
+      summary: Изменить условия выхода из своей позиции
+      operationId: updateExitSettings
+      description: Меняются только переданные поля; null отключает стоп-лосс или тейк-профит. EXIT_PENDING и CLOSED изменять нельзя.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ExitSettingsUpdate'
+            examples:
+              default:
+                $ref: '#/components/examples/ExitSettingsUpdate'
+      responses:
+        '200':
+          description: Условия изменены
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CopiedPosition'
+              examples:
+                default:
+                  $ref: '#/components/examples/CopiedPositionUpdated'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /api/v1/tracking/copied-positions/{id}/close:
+    parameters:
+    - name: id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+      example: 11111111-1111-4111-8111-000000000006
+    post:
+      summary: Запросить закрытие своей скопированной позиции
+      operationId: closeCopiedPosition
+      description: Без тела запроса. Продажа всей отслеживаемой позиции с её текущими лимитами исполнения.
+      parameters:
+      - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '202':
+          description: Запрос принят; исполнение асинхронное
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClosePositionResult'
+              examples:
+                default:
+                  $ref: '#/components/examples/ClosePosition'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  parameters:
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      description: Один ключ на операцию; повтор с тем же телом возвращает прежний результат, другое тело — 409
+      schema:
+        type: string
+        format: uuid
+      example: 11111111-1111-4111-8111-000000000007
+  responses:
+    BadRequest:
+      description: Некорректные поля запроса
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          example:
+            type: about:blank
+            title: Bad Request
+            status: 400
+            detail: Некорректные поля запроса
+    Unauthorized:
+      description: Токен доступа отсутствует или недействителен
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          example:
+            type: about:blank
+            title: Unauthorized
+            status: 401
+            detail: Токен доступа отсутствует или недействителен
+    NotFound:
+      description: Ресурс не найден или принадлежит другому пользователю
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          example:
+            type: about:blank
+            title: Not Found
+            status: 404
+            detail: Ресурс не найден или принадлежит другому пользователю
+    Conflict:
+      description: Ресурс уже существует, ключ операции повторён с другим телом или лимиты конфликтуют с текущим состоянием
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          example:
+            type: about:blank
+            title: Conflict
+            status: 409
+            detail: Ресурс уже существует, ключ операции повторён с другим телом или лимиты конфликтуют с текущим состоянием
+    Unavailable:
+      description: Зависимый сервис временно недоступен
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          example:
+            type: about:blank
+            title: Service Unavailable
+            status: 503
+            detail: Зависимый сервис временно недоступен
+  schemas:
+    TrackedWalletRequest:
+      type: object
+      required:
+      - walletAddress
+      - label
+      - notificationsEnabled
+      properties:
+        walletAddress:
+          type: string
+          description: Публичный адрес наблюдаемого кошелька
+          minLength: 32
+          maxLength: 44
+        label:
+          type: string
+          description: Подпись пользователя
+          minLength: 1
+          maxLength: 100
+        notificationsEnabled:
+          type: boolean
+    TrackedWallet:
+      allOf:
+      - $ref: '#/components/schemas/TrackedWalletRequest'
+      - type: object
+        required:
+        - id
+        - createdAt
+        properties:
+          id:
+            type: string
+            format: uuid
+          createdAt:
+            type: string
+            format: date-time
+    TrackedWalletUpdate:
+      type: object
+      properties:
+        label:
+          type: string
+          description: Подпись пользователя
+          minLength: 1
+          maxLength: 100
+        notificationsEnabled:
+          type: boolean
+      minProperties: 1
+      additionalProperties: false
+    TrackedWalletPage:
+      type: object
+      required:
+      - content
+      - page
+      - size
+      - totalElements
+      - totalPages
+      properties:
+        content:
+          type: array
+          items:
+            $ref: '#/components/schemas/TrackedWallet'
+        page:
+          type: integer
+          minimum: 0
+        size:
+          type: integer
+          minimum: 1
+          maximum: 100
+        totalElements:
+          type: integer
+          minimum: 0
+        totalPages:
+          type: integer
+          minimum: 0
+    WalletActivity:
+      type: object
+      required:
+      - id
+      - trackedWalletId
+      - walletAddress
+      - signature
+      - instructionIndex
+      - type
+      - mint
+      - tokenAmountRaw
+      - tokenDecimals
+      - occurredAt
+      properties:
+        id:
+          type: string
+          format: uuid
+        trackedWalletId:
+          type: string
+          format: uuid
+        walletAddress:
+          type: string
+        signature:
+          type: string
+          description: Подпись исходной транзакции
+        instructionIndex:
+          type: integer
+          minimum: 0
+          description: Индекс операции внутри транзакции
+        type:
+          type: string
+          enum:
+          - BUY
+          - SELL
+          - TRANSFER
+        mint:
+          type: string
+        tokenAmountRaw:
+          type: string
+          pattern: ^[0-9]+$
+        tokenDecimals:
+          type: integer
+          minimum: 0
+          maximum: 255
+        occurredAt:
+          type: string
+          format: date-time
+    WalletActivityPage:
+      type: object
+      required:
+      - content
+      - page
+      - size
+      - totalElements
+      - totalPages
+      properties:
+        content:
+          type: array
+          items:
+            $ref: '#/components/schemas/WalletActivity'
+        page:
+          type: integer
+          minimum: 0
+        size:
+          type: integer
+          minimum: 1
+          maximum: 100
+        totalElements:
+          type: integer
+          minimum: 0
+        totalPages:
+          type: integer
+          minimum: 0
+    CallRequest:
+      type: object
+      required:
+      - mint
+      - text
+      properties:
+        mint:
+          type: string
+          description: Mint-адрес токена
+          minLength: 32
+          maxLength: 44
+        text:
+          type: string
+          minLength: 1
+          maxLength: 1000
+    Call:
+      allOf:
+      - $ref: '#/components/schemas/CallRequest'
+      - type: object
+        required:
+        - id
+        - authorId
+        - tokenSymbol
+        - priceUsdAtPublication
+        - createdAt
+        properties:
+          id:
+            type: string
+            format: uuid
+          authorId:
+            type: string
+            format: uuid
+          tokenSymbol:
+            type: string
+          priceUsdAtPublication:
+            type:
+            - number
+            - 'null'
+            minimum: 0
+          createdAt:
+            type: string
+            format: date-time
+    CallPage:
+      type: object
+      required:
+      - content
+      - page
+      - size
+      - totalElements
+      - totalPages
+      properties:
+        content:
+          type: array
+          items:
+            $ref: '#/components/schemas/Call'
+        page:
+          type: integer
+          minimum: 0
+        size:
+          type: integer
+          minimum: 1
+          maximum: 100
+        totalElements:
+          type: integer
+          minimum: 0
+        totalPages:
+          type: integer
+          minimum: 0
+    CopySettingsRequest:
+      type: object
+      required:
+      - enabled
+      - tradingWalletId
+      - buyAmountSol
+      - budgetSol
+      - maxOpenPositions
+      - maxPurchasesPerDay
+      - allowRepeatPurchase
+      - stopLossPercent
+      - takeProfitPercent
+      - maxSlippage
+      - maxPriorityFeeLamports
+      - maxTipLamports
+      properties:
+        enabled:
+          type: boolean
+          description: Включены ли новые автопокупки; отключение не отменяет защиту открытых позиций
+        tradingWalletId:
+          type: string
+          format: uuid
+          description: Собственный кошелёк пользователя в trading-service
+        buyAmountSol:
+          type: number
+          exclusiveMinimum: 0
+          description: Фиксированная сумма одной покупки в SOL без комиссий; не больше budgetSol
+        budgetSol:
+          type: number
+          exclusiveMinimum: 0
+          description: Бюджет покупок за всё время настройки без комиссий; продажа его не восстанавливает
+        maxOpenPositions:
+          type: integer
+          minimum: 1
+          description: Лимит открытых позиций с учётом ожидающих покупок
+        maxPurchasesPerDay:
+          type: integer
+          minimum: 1
+          description: Успешные и ожидающие покупки за календарные сутки UTC
+        allowRepeatPurchase:
+          type: boolean
+          description: Можно ли снова купить токен после закрытия позиции; пока позиция открыта, повтор запрещён
+        stopLossPercent:
+          type:
+          - number
+          - 'null'
+          exclusiveMinimum: 0
+          exclusiveMaximum: 100
+          description: Падение цены от цены входа в процентах; null отключает стоп-лосс
+        takeProfitPercent:
+          type:
+          - number
+          - 'null'
+          exclusiveMinimum: 0
+          description: Рост цены от цены входа в процентах; null отключает тейк-профит
+        maxSlippage:
+          type: number
+          minimum: 0
+          maximum: 100
+          description: Допустимое проскальзывание в процентах; 2 означает 2%
+        maxPriorityFeeLamports:
+          type: integer
+          minimum: 0
+          description: Максимальная суммарная priority fee одной транзакции в lamports
+        maxTipLamports:
+          type: integer
+          minimum: 0
+          description: Максимальный tip одной транзакции в lamports
+      description: Фиксированные покупки после включения; выходы сохраняются при выключении. BUY фиксирует снимок exitSettings. Условия выхода
+        проверяются по ценам не старше 10 секунд.
+    CopySettings:
+      allOf:
+      - $ref: '#/components/schemas/CopySettingsRequest'
+      - type: object
+        required:
+        - id
+        - trackedWalletId
+        - spentSol
+        - reservedSol
+        - updatedAt
+        properties:
+          id:
+            type: string
+            format: uuid
+          trackedWalletId:
+            type: string
+            format: uuid
+          spentSol:
+            type: number
+            minimum: 0
+            description: Исполненные покупки без комиссий
+          reservedSol:
+            type: number
+            minimum: 0
+            description: Резерв под ожидающие покупки без комиссий
+          updatedAt:
+            type: string
+            format: date-time
+    ExitSettings:
+      type: object
+      required:
+      - stopLossPercent
+      - takeProfitPercent
+      - maxSlippage
+      - maxPriorityFeeLamports
+      - maxTipLamports
+      properties:
+        stopLossPercent:
+          type:
+          - number
+          - 'null'
+          exclusiveMinimum: 0
+          exclusiveMaximum: 100
+          description: Падение цены от цены входа в процентах; null отключает стоп-лосс
+        takeProfitPercent:
+          type:
+          - number
+          - 'null'
+          exclusiveMinimum: 0
+          description: Рост цены от цены входа в процентах; null отключает тейк-профит
+        maxSlippage:
+          type: number
+          minimum: 0
+          maximum: 100
+          description: Допустимое проскальзывание в процентах; 2 означает 2%
+        maxPriorityFeeLamports:
+          type: integer
+          minimum: 0
+          description: Максимальная суммарная priority fee одной транзакции в lamports
+        maxTipLamports:
+          type: integer
+          minimum: 0
+          description: Максимальный tip одной транзакции в lamports
+    ExitSettingsUpdate:
+      type: object
+      properties:
+        stopLossPercent:
+          type:
+          - number
+          - 'null'
+          exclusiveMinimum: 0
+          exclusiveMaximum: 100
+          description: Падение цены от цены входа в процентах; null отключает стоп-лосс
+        takeProfitPercent:
+          type:
+          - number
+          - 'null'
+          exclusiveMinimum: 0
+          description: Рост цены от цены входа в процентах; null отключает тейк-профит
+        maxSlippage:
+          type: number
+          minimum: 0
+          maximum: 100
+          description: Допустимое проскальзывание в процентах; 2 означает 2%
+        maxPriorityFeeLamports:
+          type: integer
+          minimum: 0
+          description: Максимальная суммарная priority fee одной транзакции в lamports
+        maxTipLamports:
+          type: integer
+          minimum: 0
+          description: Максимальный tip одной транзакции в lamports
+      minProperties: 1
+      additionalProperties: false
+    CopiedPosition:
+      type: object
+      required:
+      - positionId
+      - copySettingsId
+      - tradingWalletId
+      - mint
+      - quantityRaw
+      - tokenDecimals
+      - entryPriceUsd
+      - state
+      - exitSettings
+      - openedAt
+      properties:
+        positionId:
+          type: string
+          format: uuid
+          description: Идентификатор позиции в portfolio-service
+        copySettingsId:
+          type: string
+          format: uuid
+        tradingWalletId:
+          type: string
+          format: uuid
+        mint:
+          type: string
+        quantityRaw:
+          type: string
+          pattern: ^[0-9]+$
+        tokenDecimals:
+          type: integer
+          minimum: 0
+          maximum: 255
+        entryPriceUsd:
+          type:
+          - number
+          - 'null'
+          exclusiveMinimum: 0
+        state:
+          type: string
+          enum:
+          - OPEN
+          - EXIT_PENDING
+          - CLOSED
+        exitSettings:
+          $ref: '#/components/schemas/ExitSettings'
+        openedAt:
+          type: string
+          format: date-time
+    CopiedPositionPage:
+      type: object
+      required:
+      - content
+      - page
+      - size
+      - totalElements
+      - totalPages
+      properties:
+        content:
+          type: array
+          items:
+            $ref: '#/components/schemas/CopiedPosition'
+        page:
+          type: integer
+          minimum: 0
+        size:
+          type: integer
+          minimum: 1
+          maximum: 100
+        totalElements:
+          type: integer
+          minimum: 0
+        totalPages:
+          type: integer
+          minimum: 0
+    ClosePositionResult:
+      type: object
+      required:
+      - intentId
+      - positionId
+      - status
+      properties:
+        intentId:
+          type: string
+          format: uuid
+        positionId:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum:
+          - PENDING
+    Problem:
+      type: object
+      required:
+      - type
+      - title
+      - status
+      - detail
+      properties:
+        type:
+          type: string
+          format: uri
+        title:
+          type: string
+        status:
+          type: integer
+        detail:
+          type: string
+  examples:
+    CreateTrackedWallet:
+      value:
+        walletAddress: 9AuDJoa2bDgcN2fisM9nBWdunvdNiyDiZo2dFCkArq2T
+        label: Основной кошелёк автора
+        notificationsEnabled: true
+    TrackedWallet:
+      value:
+        id: 11111111-1111-4111-8111-000000000001
+        walletAddress: 9AuDJoa2bDgcN2fisM9nBWdunvdNiyDiZo2dFCkArq2T
+        label: Основной кошелёк автора
+        notificationsEnabled: true
+        createdAt: '2026-11-11T12:00:00Z'
+    TrackedWalletPage:
+      value:
+        content:
+        - id: 11111111-1111-4111-8111-000000000001
+          walletAddress: 9AuDJoa2bDgcN2fisM9nBWdunvdNiyDiZo2dFCkArq2T
+          label: Основной кошелёк автора
+          notificationsEnabled: true
+          createdAt: '2026-11-11T12:00:00Z'
+        page: 0
+        size: 20
+        totalElements: 1
+        totalPages: 1
+    TrackedWalletUpdate:
+      value:
+        notificationsEnabled: false
+    WalletActivityPage:
+      value:
+        content:
+        - id: 11111111-1111-4111-8111-000000000005
+          trackedWalletId: 11111111-1111-4111-8111-000000000001
+          walletAddress: 9AuDJoa2bDgcN2fisM9nBWdunvdNiyDiZo2dFCkArq2T
+          signature: '3333333333333333333333333333333333333333333333333333333333333333333333333333333333333333'
+          instructionIndex: 2
+          type: BUY
+          mint: BSBkEGZfkitKTHVaC8VvCJ37Fj5r7XjssBeesic6mjwZ
+          tokenAmountRaw: '100000000'
+          tokenDecimals: 6
+          occurredAt: '2026-11-11T12:00:00Z'
+        page: 0
+        size: 20
+        totalElements: 1
+        totalPages: 1
+    CreateCall:
+      value:
+        mint: BSBkEGZfkitKTHVaC8VvCJ37Fj5r7XjssBeesic6mjwZ
+        text: Наблюдаю за токеном, проверяю ликвидность.
+    Call:
+      value:
+        id: 11111111-1111-4111-8111-000000000004
+        authorId: 11111111-1111-4111-8111-000000000010
+        mint: BSBkEGZfkitKTHVaC8VvCJ37Fj5r7XjssBeesic6mjwZ
+        text: Наблюдаю за токеном, проверяю ликвидность.
+        tokenSymbol: MEME
+        priceUsdAtPublication: 1.234e-05
+        createdAt: '2026-11-11T12:00:00Z'
+    CallPage:
+      value:
+        content:
+        - id: 11111111-1111-4111-8111-000000000004
+          authorId: 11111111-1111-4111-8111-000000000010
+          mint: BSBkEGZfkitKTHVaC8VvCJ37Fj5r7XjssBeesic6mjwZ
+          text: Наблюдаю за токеном, проверяю ликвидность.
+          tokenSymbol: MEME
+          priceUsdAtPublication: 1.234e-05
+          createdAt: '2026-11-11T12:00:00Z'
+        page: 0
+        size: 20
+        totalElements: 1
+        totalPages: 1
+    CopySettingsRequest:
+      value:
+        enabled: true
+        tradingWalletId: 11111111-1111-4111-8111-000000000002
+        buyAmountSol: 0.1
+        budgetSol: 1
+        maxOpenPositions: 3
+        maxPurchasesPerDay: 5
+        allowRepeatPurchase: false
+        maxSlippage: 2
+        maxPriorityFeeLamports: 100000
+        maxTipLamports: 100000
+        stopLossPercent: 10
+        takeProfitPercent: 25
+    CopySettings:
+      value:
+        id: 11111111-1111-4111-8111-000000000003
+        trackedWalletId: 11111111-1111-4111-8111-000000000001
+        enabled: true
+        tradingWalletId: 11111111-1111-4111-8111-000000000002
+        buyAmountSol: 0.1
+        budgetSol: 1
+        maxOpenPositions: 3
+        maxPurchasesPerDay: 5
+        allowRepeatPurchase: false
+        maxSlippage: 2
+        maxPriorityFeeLamports: 100000
+        maxTipLamports: 100000
+        stopLossPercent: 10
+        takeProfitPercent: 25
+        spentSol: 0
+        reservedSol: 0
+        updatedAt: '2026-11-11T12:00:00Z'
+    CopiedPositionPage:
+      value:
+        content:
+        - positionId: 11111111-1111-4111-8111-000000000006
+          copySettingsId: 11111111-1111-4111-8111-000000000003
+          tradingWalletId: 11111111-1111-4111-8111-000000000002
+          mint: BSBkEGZfkitKTHVaC8VvCJ37Fj5r7XjssBeesic6mjwZ
+          quantityRaw: '100000000'
+          tokenDecimals: 6
+          entryPriceUsd: 1.234e-05
+          state: OPEN
+          exitSettings:
+            stopLossPercent: 10
+            takeProfitPercent: 25
+            maxSlippage: 2
+            maxPriorityFeeLamports: 100000
+            maxTipLamports: 100000
+          openedAt: '2026-11-11T12:00:00Z'
+        page: 0
+        size: 20
+        totalElements: 1
+        totalPages: 1
+    ExitSettingsUpdate:
+      value:
+        stopLossPercent: 8
+    ClosePosition:
+      value:
+        intentId: 11111111-1111-4111-8111-000000000007
+        positionId: 11111111-1111-4111-8111-000000000006
+        status: PENDING
+    TrackedWalletUpdated:
+      value:
+        id: 11111111-1111-4111-8111-000000000001
+        walletAddress: 9AuDJoa2bDgcN2fisM9nBWdunvdNiyDiZo2dFCkArq2T
+        label: Основной кошелёк автора
+        notificationsEnabled: false
+        createdAt: '2026-11-11T12:00:00Z'
+    CopiedPositionUpdated:
+      value:
+        positionId: 11111111-1111-4111-8111-000000000006
+        copySettingsId: 11111111-1111-4111-8111-000000000003
+        tradingWalletId: 11111111-1111-4111-8111-000000000002
+        mint: BSBkEGZfkitKTHVaC8VvCJ37Fj5r7XjssBeesic6mjwZ
+        quantityRaw: '100000000'
+        tokenDecimals: 6
+        entryPriceUsd: 1.234e-05
+        state: OPEN
+        exitSettings:
+          stopLossPercent: 8
+          takeProfitPercent: 25
+          maxSlippage: 2
+          maxPriorityFeeLamports: 100000
+          maxTipLamports: 100000
+        openedAt: '2026-11-11T12:00:00Z'

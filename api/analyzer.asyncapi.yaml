@@ -1,0 +1,514 @@
+asyncapi: 3.0.0
+info:
+  title: Analyzer Service Kafka API
+  version: 1.0.0
+  description: Контракт сообщений Kafka для analyzer-service. eventId защищает от повторной обработки; correlationId связывает цепочку событий.
+defaultContentType: application/json
+servers:
+  local:
+    host: localhost:9092
+    protocol: kafka
+    description: Локальный брокер; адрес меняется при развёртывании
+channels:
+  md.token.discovered:
+    address: md.token.discovered
+    description: 'Отправитель: market-data-service. Получатели: analyzer-service.'
+    servers:
+      - $ref: '#/servers/local'
+    messages:
+      TokenDiscoveredMessage:
+        $ref: '#/components/messages/TokenDiscoveredMessage'
+  md.liquidity.changed:
+    address: md.liquidity.changed
+    description: 'Отправитель: market-data-service. Получатели: analyzer-service.'
+    servers:
+      - $ref: '#/servers/local'
+    messages:
+      LiquidityChangedMessage:
+        $ref: '#/components/messages/LiquidityChangedMessage'
+  analysis.token.scored:
+    address: analysis.token.scored
+    description: 'Отправитель: analyzer-service.'
+    servers:
+      - $ref: '#/servers/local'
+    messages:
+      TokenScoredMessage:
+        $ref: '#/components/messages/TokenScoredMessage'
+  analysis.rug.detected:
+    address: analysis.rug.detected
+    description: 'Отправитель: analyzer-service. Получатели: notification-service.'
+    servers:
+      - $ref: '#/servers/local'
+    messages:
+      RugDetectedMessage:
+        $ref: '#/components/messages/RugDetectedMessage'
+operations:
+  receiveTokenDiscovered:
+    action: receive
+    channel:
+      $ref: '#/channels/md.token.discovered'
+    messages:
+      - $ref: '#/channels/md.token.discovered/messages/TokenDiscoveredMessage'
+    bindings:
+      kafka:
+        groupId:
+          type: string
+          enum:
+            - analyzer-service
+        bindingVersion: 0.5.0
+  receiveLiquidityChanged:
+    action: receive
+    channel:
+      $ref: '#/channels/md.liquidity.changed'
+    messages:
+      - $ref: '#/channels/md.liquidity.changed/messages/LiquidityChangedMessage'
+    bindings:
+      kafka:
+        groupId:
+          type: string
+          enum:
+            - analyzer-service
+        bindingVersion: 0.5.0
+  sendTokenScored:
+    action: send
+    channel:
+      $ref: '#/channels/analysis.token.scored'
+    messages:
+      - $ref: '#/channels/analysis.token.scored/messages/TokenScoredMessage'
+  sendRugDetected:
+    action: send
+    channel:
+      $ref: '#/channels/analysis.rug.detected'
+    messages:
+      - $ref: '#/channels/analysis.rug.detected/messages/RugDetectedMessage'
+components:
+  messages:
+    TokenDiscoveredMessage:
+      name: TokenDiscovered
+      title: md.token.discovered
+      contentType: application/json
+      correlationId:
+        location: $message.payload#/correlationId
+      payload:
+        $ref: '#/components/schemas/TokenDiscovered'
+      bindings:
+        kafka:
+          key:
+            type: string
+            description: Значение payload.mint
+          bindingVersion: 0.5.0
+      examples:
+        - name: example1
+          payload:
+            eventId: 11111111-1111-4111-8111-000000000008
+            eventType: md.token.discovered
+            schemaVersion: 1
+            occurredAt: '2026-11-11T12:00:00Z'
+            correlationId: 11111111-1111-4111-8111-000000000009
+            payload:
+              mint: BSBkEGZfkitKTHVaC8VvCJ37Fj5r7XjssBeesic6mjwZ
+              poolAddress: 8P5BGPTwLDJC55Tua37C7yQiVM6WVXJw3LDetTjeAaxa
+              discoveredAt: '2026-11-11T12:00:00Z'
+    LiquidityChangedMessage:
+      name: LiquidityChanged
+      title: md.liquidity.changed
+      contentType: application/json
+      correlationId:
+        location: $message.payload#/correlationId
+      payload:
+        $ref: '#/components/schemas/LiquidityChanged'
+      bindings:
+        kafka:
+          key:
+            type: string
+            description: Значение payload.mint
+          bindingVersion: 0.5.0
+      examples:
+        - name: example1
+          payload:
+            eventId: 11111111-1111-4111-8111-000000000008
+            eventType: md.liquidity.changed
+            schemaVersion: 1
+            occurredAt: '2026-11-11T12:00:00Z'
+            correlationId: 11111111-1111-4111-8111-000000000009
+            payload:
+              mint: BSBkEGZfkitKTHVaC8VvCJ37Fj5r7XjssBeesic6mjwZ
+              poolAddress: 8P5BGPTwLDJC55Tua37C7yQiVM6WVXJw3LDetTjeAaxa
+              liquidityUsd: 30000
+              observedAt: '2026-11-11T12:00:00Z'
+    TokenScoredMessage:
+      name: TokenScored
+      title: analysis.token.scored
+      contentType: application/json
+      correlationId:
+        location: $message.payload#/correlationId
+      payload:
+        $ref: '#/components/schemas/TokenScored'
+      bindings:
+        kafka:
+          key:
+            type: string
+            description: Значение payload.mint
+          bindingVersion: 0.5.0
+      examples:
+        - name: example1
+          payload:
+            eventId: 11111111-1111-4111-8111-000000000008
+            eventType: analysis.token.scored
+            schemaVersion: 1
+            occurredAt: '2026-11-11T12:00:00Z'
+            correlationId: 11111111-1111-4111-8111-000000000009
+            payload:
+              mint: BSBkEGZfkitKTHVaC8VvCJ37Fj5r7XjssBeesic6mjwZ
+              marketData:
+                mint: BSBkEGZfkitKTHVaC8VvCJ37Fj5r7XjssBeesic6mjwZ
+                updatedAt: '2026-11-11T12:00:00Z'
+                price: 1.234e-05
+                liquidity: 30000
+                volume24h: 150000
+                marketCap: 123400
+                tags:
+                  - meme
+              analysis:
+                analyzedAt: '2026-11-11T12:00:00Z'
+                riskScore: 25
+                devHoldingPercent: 4.5
+                top10HoldersPercent: 23.7
+                bundleHoldingPercent: 12.3
+                freezeAuthorityEnabled: false
+              poolAnalysis:
+                - address: 8P5BGPTwLDJC55Tua37C7yQiVM6WVXJw3LDetTjeAaxa
+                  liquidity: 30000
+                  lpLockedPercent: 90
+                  dex: RAYDIUM
+    RugDetectedMessage:
+      name: RugDetected
+      title: analysis.rug.detected
+      contentType: application/json
+      correlationId:
+        location: $message.payload#/correlationId
+      payload:
+        $ref: '#/components/schemas/RugDetected'
+      bindings:
+        kafka:
+          key:
+            type: string
+            description: Значение payload.mint
+          bindingVersion: 0.5.0
+      examples:
+        - name: example1
+          payload:
+            eventId: 11111111-1111-4111-8111-000000000008
+            eventType: analysis.rug.detected
+            schemaVersion: 1
+            occurredAt: '2026-11-11T12:00:00Z'
+            correlationId: 11111111-1111-4111-8111-000000000009
+            payload:
+              mint: BSBkEGZfkitKTHVaC8VvCJ37Fj5r7XjssBeesic6mjwZ
+              riskScore: 85
+              riskFlags:
+                - FREEZE_AUTHORITY_ENABLED
+  schemas:
+    TokenDiscovered:
+      type: object
+      required:
+        - eventId
+        - eventType
+        - schemaVersion
+        - occurredAt
+        - correlationId
+        - payload
+      properties:
+        eventId:
+          type: string
+          format: uuid
+        eventType:
+          type: string
+          const: md.token.discovered
+        schemaVersion:
+          type: integer
+          const: 1
+        occurredAt:
+          type: string
+          format: date-time
+        correlationId:
+          type: string
+          format: uuid
+        payload:
+          type: object
+          required:
+            - mint
+            - poolAddress
+            - discoveredAt
+          properties:
+            mint:
+              type: string
+            poolAddress:
+              type: string
+            discoveredAt:
+              type: string
+              format: date-time
+    LiquidityChanged:
+      type: object
+      required:
+        - eventId
+        - eventType
+        - schemaVersion
+        - occurredAt
+        - correlationId
+        - payload
+      properties:
+        eventId:
+          type: string
+          format: uuid
+        eventType:
+          type: string
+          const: md.liquidity.changed
+        schemaVersion:
+          type: integer
+          const: 1
+        occurredAt:
+          type: string
+          format: date-time
+        correlationId:
+          type: string
+          format: uuid
+        payload:
+          type: object
+          required:
+            - mint
+            - poolAddress
+            - liquidityUsd
+            - observedAt
+          properties:
+            mint:
+              type: string
+            poolAddress:
+              type: string
+            liquidityUsd:
+              type:
+                - number
+                - 'null'
+              minimum: 0
+            observedAt:
+              type: string
+              format: date-time
+    TokenScored:
+      type: object
+      required:
+        - eventId
+        - eventType
+        - schemaVersion
+        - occurredAt
+        - correlationId
+        - payload
+      properties:
+        eventId:
+          type: string
+          format: uuid
+        eventType:
+          type: string
+          const: analysis.token.scored
+        schemaVersion:
+          type: integer
+          const: 1
+        occurredAt:
+          type: string
+          format: date-time
+        correlationId:
+          type: string
+          format: uuid
+        payload:
+          $ref: '#/components/schemas/FullTokenAnalysis'
+    FullTokenAnalysis:
+      type: object
+      required:
+        - mint
+        - marketData
+        - analysis
+        - poolAnalysis
+      properties:
+        mint:
+          type: string
+        marketData:
+          $ref: '#/components/schemas/MarketData'
+        analysis:
+          $ref: '#/components/schemas/TokenAnalysis'
+        poolAnalysis:
+          type: array
+          items:
+            $ref: '#/components/schemas/PoolAnalysis'
+    PoolAnalysis:
+      type: object
+      required:
+        - address
+        - liquidity
+        - lpLockedPercent
+        - dex
+      properties:
+        address:
+          type: string
+          description: Адрес пула
+        liquidity:
+          type:
+            - number
+            - 'null'
+          format: double
+          minimum: 0
+          description: Ликвидность этого пула в USD
+        lpLockedPercent:
+          type:
+            - number
+            - 'null'
+          format: double
+          minimum: 0
+          maximum: 100
+          description: Процент заблокированной LP-ликвидности пула без учёта сжигания
+        dex:
+          type: string
+          enum:
+            - RAYDIUM
+            - ORCA
+            - METEORA
+            - PUMP_FUN
+    TokenAnalysis:
+      type: object
+      required:
+        - analyzedAt
+        - riskScore
+        - devHoldingPercent
+        - top10HoldersPercent
+        - bundleHoldingPercent
+        - freezeAuthorityEnabled
+      properties:
+        riskScore:
+          type:
+            - number
+            - 'null'
+          format: double
+          minimum: 0
+          maximum: 100
+          description: Чем выше значение, тем выше риск скама
+        analyzedAt:
+          type: string
+          format: date-time
+        devHoldingPercent:
+          type:
+            - number
+            - 'null'
+          format: double
+          minimum: 0
+          maximum: 100
+          description: Доля общего предложения у известного кошелька создателя в процентах
+        top10HoldersPercent:
+          type:
+            - number
+            - 'null'
+          format: double
+          minimum: 0
+          maximum: 100
+          description: Доля предложения у 10 крупнейших кошельков без счетов известных пулов и сжигания
+        bundleHoldingPercent:
+          type:
+            - number
+            - 'null'
+          format: double
+          minimum: 0
+          maximum: 100
+          description: Доля предложения у участников bundle по методике внешнего API
+        freezeAuthorityEnabled:
+          type:
+            - boolean
+            - 'null'
+          description: Сохраняется ли полномочие замораживать токен-счета
+    MarketData:
+      type: object
+      required:
+        - mint
+        - updatedAt
+        - price
+        - liquidity
+        - volume24h
+        - marketCap
+        - tags
+      properties:
+        mint:
+          type: string
+          description: Адрес токена
+        updatedAt:
+          type: string
+          format: date-time
+        price:
+          type:
+            - number
+            - 'null'
+          format: double
+          minimum: 0
+          description: Цена токена в USD
+        liquidity:
+          type:
+            - number
+            - 'null'
+          format: double
+          minimum: 0
+          description: Суммарная ликвидность известных пулов токена в USD
+        volume24h:
+          type:
+            - number
+            - 'null'
+          format: double
+          minimum: 0
+          description: Суммарный объём торгов известных пулов за 24 часа в USD
+        marketCap:
+          type:
+            - number
+            - 'null'
+          format: double
+          minimum: 0
+          description: Капитализация токена в USD
+        tags:
+          type: array
+          items:
+            type: string
+    RugDetected:
+      type: object
+      required:
+        - eventId
+        - eventType
+        - schemaVersion
+        - occurredAt
+        - correlationId
+        - payload
+      properties:
+        eventId:
+          type: string
+          format: uuid
+        eventType:
+          type: string
+          const: analysis.rug.detected
+        schemaVersion:
+          type: integer
+          const: 1
+        occurredAt:
+          type: string
+          format: date-time
+        correlationId:
+          type: string
+          format: uuid
+        payload:
+          type: object
+          required:
+            - mint
+            - riskScore
+            - riskFlags
+          properties:
+            mint:
+              type: string
+            riskScore:
+              type: number
+              minimum: 0
+              maximum: 100
+            riskFlags:
+              type: array
+              items:
+                type: string

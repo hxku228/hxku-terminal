@@ -1,0 +1,269 @@
+openapi: 3.1.1
+info:
+  title: Analyzer Service API
+  version: 1.0.0
+servers:
+- url: /
+security:
+- bearerAuth: []
+paths:
+  /api/v1/analysis/{mint}:
+    get:
+      summary: Получить результат анализа и рыночные данные токена
+      operationId: getTokenAnalysis
+      parameters:
+      - name: mint
+        in: path
+        required: true
+        schema:
+          type: string
+        description: Адрес токена в сети Solana
+        example: BSBkEGZfkitKTHVaC8VvCJ37Fj5r7XjssBeesic6mjwZ
+      responses:
+        '200':
+          description: Рыночные данные и готовый анализ токена
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FullTokenAnalysis'
+              example:
+                mint: BSBkEGZfkitKTHVaC8VvCJ37Fj5r7XjssBeesic6mjwZ
+                marketData:
+                  mint: BSBkEGZfkitKTHVaC8VvCJ37Fj5r7XjssBeesic6mjwZ
+                  updatedAt: '2026-11-11T12:00:00Z'
+                  price: 1.234e-05
+                  liquidity: 30000
+                  volume24h: 150000
+                  marketCap: 123400
+                  tags:
+                  - meme
+                analysis:
+                  analyzedAt: '2026-11-11T12:00:00Z'
+                  riskScore: 25
+                  devHoldingPercent: 4.5
+                  top10HoldersPercent: 23.7
+                  bundleHoldingPercent: 12.3
+                  freezeAuthorityEnabled: false
+                poolAnalysis:
+                - address: 8P5BGPTwLDJC55Tua37C7yQiVM6WVXJw3LDetTjeAaxa
+                  liquidity: 30000
+                  lpLockedPercent: 90
+                  dex: RAYDIUM
+        '400':
+          description: Некорректный mint-адрес
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+              example:
+                type: about:blank
+                title: Bad Request
+                status: 400
+                detail: Некорректный mint-адрес
+        '401':
+          description: Токен доступа отсутствует или недействителен
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+              example:
+                type: about:blank
+                title: Unauthorized
+                status: 401
+                detail: Токен доступа отсутствует или недействителен
+        '404':
+          description: Токен или готовый анализ не найден
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+              example:
+                type: about:blank
+                title: Not Found
+                status: 404
+                detail: Токен или готовый анализ не найден
+        '503':
+          description: Сервис или источник данных временно недоступен
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+              example:
+                type: about:blank
+                title: Service Unavailable
+                status: 503
+                detail: Сервис или источник данных временно недоступен
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    FullTokenAnalysis:
+      type: object
+      required:
+      - mint
+      - marketData
+      - analysis
+      - poolAnalysis
+      properties:
+        mint:
+          type: string
+        marketData:
+          $ref: '#/components/schemas/MarketData'
+        analysis:
+          $ref: '#/components/schemas/TokenAnalysis'
+        poolAnalysis:
+          type: array
+          items:
+            $ref: '#/components/schemas/PoolAnalysis'
+    TokenAnalysis:
+      type: object
+      required:
+      - analyzedAt
+      - riskScore
+      - devHoldingPercent
+      - top10HoldersPercent
+      - bundleHoldingPercent
+      - freezeAuthorityEnabled
+      properties:
+        riskScore:
+          type:
+          - number
+          - 'null'
+          format: double
+          minimum: 0
+          maximum: 100
+          description: Чем выше значение, тем выше риск скама
+        analyzedAt:
+          type: string
+          format: date-time
+        devHoldingPercent:
+          type:
+          - number
+          - 'null'
+          format: double
+          minimum: 0
+          maximum: 100
+          description: Доля общего предложения у известного кошелька создателя в процентах
+        top10HoldersPercent:
+          type:
+          - number
+          - 'null'
+          format: double
+          minimum: 0
+          maximum: 100
+          description: Доля предложения у 10 крупнейших кошельков без счетов известных пулов и сжигания
+        bundleHoldingPercent:
+          type:
+          - number
+          - 'null'
+          format: double
+          minimum: 0
+          maximum: 100
+          description: Доля предложения у участников bundle по методике внешнего API
+        freezeAuthorityEnabled:
+          type:
+          - boolean
+          - 'null'
+          description: Сохраняется ли полномочие замораживать токен-счета
+    MarketData:
+      type: object
+      required:
+      - mint
+      - updatedAt
+      - price
+      - liquidity
+      - volume24h
+      - marketCap
+      - tags
+      properties:
+        mint:
+          type: string
+          description: Адрес токена
+        updatedAt:
+          type: string
+          format: date-time
+        price:
+          type:
+          - number
+          - 'null'
+          format: double
+          minimum: 0
+          description: Цена токена в USD
+        liquidity:
+          type:
+          - number
+          - 'null'
+          format: double
+          minimum: 0
+          description: Суммарная ликвидность известных пулов токена в USD
+        volume24h:
+          type:
+          - number
+          - 'null'
+          format: double
+          minimum: 0
+          description: Суммарный объём торгов известных пулов за 24 часа в USD
+        marketCap:
+          type:
+          - number
+          - 'null'
+          format: double
+          minimum: 0
+          description: Капитализация токена в USD
+        tags:
+          type: array
+          items:
+            type: string
+    PoolAnalysis:
+      type: object
+      required:
+      - address
+      - liquidity
+      - lpLockedPercent
+      - dex
+      properties:
+        address:
+          type: string
+          description: Адрес пула
+        liquidity:
+          type:
+          - number
+          - 'null'
+          format: double
+          minimum: 0
+          description: Ликвидность этого пула в USD
+        lpLockedPercent:
+          type:
+          - number
+          - 'null'
+          format: double
+          minimum: 0
+          maximum: 100
+          description: Процент заблокированной LP-ликвидности пула без учёта сжигания
+        dex:
+          type: string
+          enum:
+          - RAYDIUM
+          - ORCA
+          - METEORA
+          - PUMP_FUN
+    Problem:
+      type: object
+      required:
+      - type
+      - title
+      - status
+      - detail
+      properties:
+        type:
+          type: string
+          format: uri
+        title:
+          type: string
+        status:
+          type: integer
+        detail:
+          type: string

@@ -1,0 +1,1043 @@
+openapi: 3.1.1
+info:
+  title: Trading Service API
+  version: 1.0.0
+servers:
+  - url: /
+security:
+  - bearerAuth: []
+paths:
+  /api/v1/wallets:
+    post:
+      summary: Создать торговый кошелёк
+      operationId: createWallet
+      description: Генерируется новый кошелёк Solana. Приватный ключ хранится на сервере через Vault и не возвращается в API. Пополнение — перевод
+        SOL на address.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WalletRequest'
+            example:
+              name: Основной кошелёк
+      responses:
+        '201':
+          description: Кошелёк создан
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Wallet'
+              example:
+                id: 11111111-1111-4111-8111-000000000002
+                name: Основной кошелёк
+                address: 9AuDJoa2bDgcN2fisM9nBWdunvdNiyDiZo2dFCkArq2T
+                balanceSol: 0
+                createdAt: '2026-11-19T12:00:00Z'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+    get:
+      summary: Получить свои торговые кошельки
+      operationId: getWallets
+      parameters:
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+          example: 0
+        - name: size
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+          example: 20
+      responses:
+        '200':
+          description: Страница собственных кошельков
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WalletPage'
+              example:
+                content:
+                  - id: 11111111-1111-4111-8111-000000000002
+                    name: Основной кошелёк
+                    address: 9AuDJoa2bDgcN2fisM9nBWdunvdNiyDiZo2dFCkArq2T
+                    balanceSol: 1.5
+                    createdAt: '2026-11-19T12:00:00Z'
+                page: 0
+                size: 20
+                totalElements: 1
+                totalPages: 1
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /api/v1/wallets/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+        example: 11111111-1111-4111-8111-000000000002
+    get:
+      summary: Получить свой торговый кошелёк
+      operationId: getWallet
+      responses:
+        '200':
+          description: Кошелёк найден
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Wallet'
+              example:
+                id: 11111111-1111-4111-8111-000000000002
+                name: Основной кошелёк
+                address: 9AuDJoa2bDgcN2fisM9nBWdunvdNiyDiZo2dFCkArq2T
+                balanceSol: 1.5
+                createdAt: '2026-11-19T12:00:00Z'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /api/v1/orders:
+    post:
+      summary: Создать ордер на покупку или продажу
+      operationId: createOrder
+      description: После надёжного сохранения ордера возвращается 202, исполнение асинхронное. Недостаток средств, отсутствие маршрута или невозможность
+        соблюсти лимиты приводят к REJECTED. Ключ идемпотентности обязателен; повтор той же операции возвращает исходный 202 с тем же id и intentId.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OrderRequest'
+            examples:
+              buy:
+                value:
+                  walletId: 11111111-1111-4111-8111-000000000002
+                  mint: BSBkEGZfkitKTHVaC8VvCJ37Fj5r7XjssBeesic6mjwZ
+                  side: BUY
+                  buyAmountSol: 0.1
+                  maxSlippage: 2
+                  maxPriorityFeeLamports: 100000
+                  maxTipLamports: 100000
+              sell:
+                value:
+                  walletId: 11111111-1111-4111-8111-000000000002
+                  mint: BSBkEGZfkitKTHVaC8VvCJ37Fj5r7XjssBeesic6mjwZ
+                  side: SELL
+                  sellQuantityRaw: '50000000'
+                  maxSlippage: 2
+                  maxPriorityFeeLamports: 100000
+                  maxTipLamports: 100000
+      responses:
+        '202':
+          description: Ордер принят; это ещё не подтверждение покупки или продажи
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+              example:
+                id: 11111111-1111-4111-8111-000000000020
+                intentId: 11111111-1111-4111-8111-000000000007
+                walletId: 11111111-1111-4111-8111-000000000002
+                mint: BSBkEGZfkitKTHVaC8VvCJ37Fj5r7XjssBeesic6mjwZ
+                side: BUY
+                source: MANUAL
+                copySettingsId: null
+                positionId: null
+                buyAmountSol: 0.1
+                sellQuantityRaw: null
+                maxSlippage: 2
+                maxPriorityFeeLamports: 100000
+                maxTipLamports: 100000
+                status: PENDING
+                signature: null
+                execution: null
+                fees: null
+                reason: null
+                createdAt: '2026-11-19T12:00:00Z'
+                updatedAt: '2026-11-19T12:00:00Z'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+    get:
+      summary: Получить историю своих ордеров
+      operationId: getOrders
+      description: Ручные и скопированные ордера во всех состояниях; сначала новые по createdAt, затем по id. Отсутствие ордеров — пустой content.
+      parameters:
+        - name: walletId
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Внутренний идентификатор собственного кошелька
+          example: 11111111-1111-4111-8111-000000000002
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum:
+              - PENDING
+              - EXECUTED
+              - REJECTED
+              - FAILED
+        - name: side
+          in: query
+          required: false
+          schema:
+            type: string
+            enum:
+              - BUY
+              - SELL
+        - name: source
+          in: query
+          required: false
+          schema:
+            type: string
+            enum:
+              - MANUAL
+              - COPY
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+          example: 0
+        - name: size
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+          example: 20
+      responses:
+        '200':
+          description: Страница ордеров с учётом фильтров
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderPage'
+              example:
+                content:
+                  - id: 11111111-1111-4111-8111-000000000020
+                    intentId: 11111111-1111-4111-8111-000000000007
+                    walletId: 11111111-1111-4111-8111-000000000002
+                    mint: BSBkEGZfkitKTHVaC8VvCJ37Fj5r7XjssBeesic6mjwZ
+                    side: BUY
+                    source: MANUAL
+                    copySettingsId: null
+                    positionId: null
+                    buyAmountSol: 0.1
+                    sellQuantityRaw: null
+                    maxSlippage: 2
+                    maxPriorityFeeLamports: 100000
+                    maxTipLamports: 100000
+                    status: EXECUTED
+                    signature: '3333333333333333333333333333333333333333333333333333333333333333333333333333333333333333'
+                    execution:
+                      quantityRaw: '100000000'
+                      tokenDecimals: 6
+                      amountSol: 0.1
+                      amountUsd: 15
+                      executionPriceUsd: 0.15
+                      executedAt: '2026-11-19T12:00:00Z'
+                    fees:
+                      networkFeeLamports: 105000
+                      tipLamports: 100000
+                      solPriceUsd: 150
+                      feesUsd: 0.03075
+                    reason: null
+                    createdAt: '2026-11-19T12:00:00Z'
+                    updatedAt: '2026-11-19T12:00:00Z'
+                page: 0
+                size: 20
+                totalElements: 1
+                totalPages: 1
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /api/v1/orders/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+        example: 11111111-1111-4111-8111-000000000020
+    get:
+      summary: Получить состояние своего ордера
+      operationId: getOrder
+      description: Используется для проверки результата после 202. Если результат транзакции неизвестен, возвращается PENDING, даже после таймаута
+        обращения к RPC.
+      responses:
+        '200':
+          description: Текущее состояние ордера
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+              examples:
+                pending:
+                  value:
+                    id: 11111111-1111-4111-8111-000000000020
+                    intentId: 11111111-1111-4111-8111-000000000007
+                    walletId: 11111111-1111-4111-8111-000000000002
+                    mint: BSBkEGZfkitKTHVaC8VvCJ37Fj5r7XjssBeesic6mjwZ
+                    side: BUY
+                    source: MANUAL
+                    copySettingsId: null
+                    positionId: null
+                    buyAmountSol: 0.1
+                    sellQuantityRaw: null
+                    maxSlippage: 2
+                    maxPriorityFeeLamports: 100000
+                    maxTipLamports: 100000
+                    status: PENDING
+                    signature: '3333333333333333333333333333333333333333333333333333333333333333333333333333333333333333'
+                    execution: null
+                    fees: null
+                    reason: null
+                    createdAt: '2026-11-19T12:00:00Z'
+                    updatedAt: '2026-11-19T12:00:00Z'
+                executed:
+                  value:
+                    id: 11111111-1111-4111-8111-000000000020
+                    intentId: 11111111-1111-4111-8111-000000000007
+                    walletId: 11111111-1111-4111-8111-000000000002
+                    mint: BSBkEGZfkitKTHVaC8VvCJ37Fj5r7XjssBeesic6mjwZ
+                    side: BUY
+                    source: MANUAL
+                    copySettingsId: null
+                    positionId: null
+                    buyAmountSol: 0.1
+                    sellQuantityRaw: null
+                    maxSlippage: 2
+                    maxPriorityFeeLamports: 100000
+                    maxTipLamports: 100000
+                    status: EXECUTED
+                    signature: '3333333333333333333333333333333333333333333333333333333333333333333333333333333333333333'
+                    execution:
+                      quantityRaw: '100000000'
+                      tokenDecimals: 6
+                      amountSol: 0.1
+                      amountUsd: 15
+                      executionPriceUsd: 0.15
+                      executedAt: '2026-11-19T12:00:00Z'
+                    fees:
+                      networkFeeLamports: 105000
+                      tipLamports: 100000
+                      solPriceUsd: 150
+                      feesUsd: 0.03075
+                    reason: null
+                    createdAt: '2026-11-19T12:00:00Z'
+                    updatedAt: '2026-11-19T12:00:00Z'
+                rejected:
+                  value:
+                    id: 11111111-1111-4111-8111-000000000020
+                    intentId: 11111111-1111-4111-8111-000000000007
+                    walletId: 11111111-1111-4111-8111-000000000002
+                    mint: BSBkEGZfkitKTHVaC8VvCJ37Fj5r7XjssBeesic6mjwZ
+                    side: BUY
+                    source: MANUAL
+                    copySettingsId: null
+                    positionId: null
+                    buyAmountSol: 0.1
+                    sellQuantityRaw: null
+                    maxSlippage: 2
+                    maxPriorityFeeLamports: 100000
+                    maxTipLamports: 100000
+                    status: REJECTED
+                    signature: null
+                    execution: null
+                    fees: null
+                    reason: INSUFFICIENT_FUNDS
+                    createdAt: '2026-11-19T12:00:00Z'
+                    updatedAt: '2026-11-19T12:00:00Z'
+                failed:
+                  value:
+                    id: 11111111-1111-4111-8111-000000000020
+                    intentId: 11111111-1111-4111-8111-000000000007
+                    walletId: 11111111-1111-4111-8111-000000000002
+                    mint: BSBkEGZfkitKTHVaC8VvCJ37Fj5r7XjssBeesic6mjwZ
+                    side: BUY
+                    source: MANUAL
+                    copySettingsId: null
+                    positionId: null
+                    buyAmountSol: 0.1
+                    sellQuantityRaw: null
+                    maxSlippage: 2
+                    maxPriorityFeeLamports: 100000
+                    maxTipLamports: 100000
+                    status: FAILED
+                    signature: '3333333333333333333333333333333333333333333333333333333333333333333333333333333333333333'
+                    execution: null
+                    fees:
+                      networkFeeLamports: 105000
+                      tipLamports: 0
+                      solPriceUsd: 150
+                      feesUsd: 0.01575
+                    reason: TRANSACTION_CONFIRMED_FAILED
+                    createdAt: '2026-11-19T12:00:00Z'
+                    updatedAt: '2026-11-19T12:00:00Z'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /internal/v1/wallets/{id}/execution-info:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+        example: 11111111-1111-4111-8111-000000000002
+    get:
+      tags:
+        - internal
+      summary: Проверить владельца и готовность кошелька к исполнению
+      operationId: getWalletExecutionInfo
+      description: Вызывает tracking при включении автопокупки. Доступен только доверенным сервисам; userId сверяется с владельцем кошелька. Trading
+        повторно проверяет средства перед каждой сделкой.
+      security:
+        - serviceAuth: []
+      parameters:
+        - name: userId
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Пользователь, для которого tracking включает автопокупку
+          example: 11111111-1111-4111-8111-000000000010
+      responses:
+        '200':
+          description: Владелец проверен; текущая готовность кошелька
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WalletExecutionInfo'
+              example:
+                walletId: 11111111-1111-4111-8111-000000000002
+                userId: 11111111-1111-4111-8111-000000000010
+                address: 9AuDJoa2bDgcN2fisM9nBWdunvdNiyDiZo2dFCkArq2T
+                canTrade: true
+                balanceSol: 1.5
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+    serviceAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Сервисный токен; проверяются audience trading-service и право trading:wallet:read. Пользовательский токен не подходит.
+  parameters:
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      description: UUID на операцию. Сохраняется для пользователя и маршрута вместе с исходным ответом. Тот же запрос — прежний ответ; другие
+        параметры — 409. Ключ не переиспользуется для новой сделки.
+      schema:
+        type: string
+        format: uuid
+      example: 11111111-1111-4111-8111-000000000030
+  responses:
+    BadRequest:
+      description: Некорректные параметры запроса
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          example:
+            type: about:blank
+            title: Bad Request
+            status: 400
+            detail: Проверьте walletId, mint, side, сумму и лимиты исполнения
+    Unauthorized:
+      description: Токен доступа отсутствует или недействителен
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          example:
+            type: about:blank
+            title: Unauthorized
+            status: 401
+            detail: Требуется действительный токен доступа
+    Forbidden:
+      description: У вызывающего сервиса нет необходимых прав
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          example:
+            type: about:blank
+            title: Forbidden
+            status: 403
+            detail: Требуется сервисный токен с правом чтения данных исполнения кошелька
+    NotFound:
+      description: Ресурс не найден или принадлежит другому пользователю
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          example:
+            type: about:blank
+            title: Not Found
+            status: 404
+            detail: Кошелёк или ордер не найдены
+    Conflict:
+      description: Ключ идемпотентности использован с другими параметрами или первый запрос ещё обрабатывается
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          example:
+            type: about:blank
+            title: Conflict
+            status: 409
+            detail: Повторите тот же запрос с тем же ключом после завершения первой обработки
+    Unavailable:
+      description: Сервис или необходимая зависимость временно недоступны
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          example:
+            type: about:blank
+            title: Service Unavailable
+            status: 503
+            detail: Операция временно недоступна; принятый ранее ордер проверяйте по его id
+  schemas:
+    WalletRequest:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 64
+      additionalProperties: false
+    Wallet:
+      type: object
+      required:
+        - id
+        - name
+        - address
+        - balanceSol
+        - createdAt
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        address:
+          type: string
+          description: Публичный адрес Solana для пополнения
+        balanceSol:
+          type:
+            - number
+            - 'null'
+          format: double
+          minimum: 0
+          description: Текущий баланс SOL; null, если RPC временно недоступен
+        createdAt:
+          type: string
+          format: date-time
+    WalletPage:
+      type: object
+      required:
+        - content
+        - page
+        - size
+        - totalElements
+        - totalPages
+      properties:
+        content:
+          type: array
+          items:
+            $ref: '#/components/schemas/Wallet'
+        page:
+          type: integer
+          minimum: 0
+          description: Номер страницы, начиная с 0
+        size:
+          type: integer
+          minimum: 1
+          maximum: 100
+          description: Запрошенный размер страницы; фактическое число элементов — длина content
+        totalElements:
+          type: integer
+          minimum: 0
+          description: Общее число собственных торговых кошельков
+        totalPages:
+          type: integer
+          minimum: 0
+          description: Число страниц; 0, если элементов нет
+    OrderRequest:
+      type: object
+      required:
+        - walletId
+        - mint
+        - side
+        - maxSlippage
+        - maxPriorityFeeLamports
+        - maxTipLamports
+      properties:
+        walletId:
+          type: string
+          format: uuid
+          description: Собственный торговый кошелёк в trading
+        mint:
+          type: string
+          description: Адрес токена; BUY меняет SOL на токен, SELL — токен на SOL
+          pattern: ^[1-9A-HJ-NP-Za-km-z]{32,44}$
+        side:
+          type: string
+          enum:
+            - BUY
+            - SELL
+        buyAmountSol:
+          type: number
+          format: double
+          description: Сумма SOL на покупку, без сетевой комиссии, tip и затрат на создание аккаунтов
+          exclusiveMinimum: 0
+        sellQuantityRaw:
+          type: string
+          pattern: ^[1-9][0-9]*$
+          description: Количество продаваемых токенов в минимальных единицах; decimals trading получает сам
+        maxSlippage:
+          type: number
+          format: double
+          description: Проскальзывание в процентах; 2 означает 2%
+          minimum: 0
+          maximum: 100
+        maxPriorityFeeLamports:
+          type: integer
+          minimum: 0
+          description: Максимальная суммарная priority fee в lamports; базовая сетевая комиссия оплачивается отдельно; 0 отключает priority fee
+        maxTipLamports:
+          type: integer
+          minimum: 0
+          description: Максимальный tip в lamports; 0 отключает tip
+      description: Только обмены SOL ↔ токен. BUY передаёт buyAmountSol, SELL — sellQuantityRaw. SOL как mint не допускается.
+      additionalProperties: false
+      oneOf:
+        - properties:
+            side:
+              const: BUY
+          required:
+            - buyAmountSol
+          not:
+            required:
+              - sellQuantityRaw
+            properties:
+              sellQuantityRaw: {}
+            additionalProperties: true
+          additionalProperties: true
+        - properties:
+            side:
+              const: SELL
+          required:
+            - sellQuantityRaw
+          not:
+            required:
+              - buyAmountSol
+            properties:
+              buyAmountSol: {}
+            additionalProperties: true
+          additionalProperties: true
+    Execution:
+      type: object
+      required:
+        - quantityRaw
+        - tokenDecimals
+        - amountSol
+        - amountUsd
+        - executionPriceUsd
+        - executedAt
+      properties:
+        quantityRaw:
+          type: string
+          pattern: ^[1-9][0-9]*$
+          description: Фактическое количество полученных при BUY или отданных при SELL токенов
+        tokenDecimals:
+          type: integer
+          minimum: 0
+          maximum: 255
+        amountSol:
+          type: number
+          format: double
+          minimum: 0
+          description: Фактический объём обмена в SOL, без сетевой комиссии, tip и затрат на создание аккаунтов
+        amountUsd:
+          type:
+            - number
+            - 'null'
+          format: double
+          minimum: 0
+          description: Объём обмена в USD на момент исполнения; null при неизвестной оценке
+        executionPriceUsd:
+          type:
+            - number
+            - 'null'
+          format: double
+          description: Цена исполнения одного токена в USD; null при неизвестной оценке
+          exclusiveMinimum: 0
+        executedAt:
+          type: string
+          description: Время исполнения транзакции в блокчейне
+          format: date-time
+    Fees:
+      type: object
+      required:
+        - networkFeeLamports
+        - tipLamports
+        - solPriceUsd
+        - feesUsd
+      properties:
+        networkFeeLamports:
+          type: integer
+          minimum: 0
+          description: Фактически списанная сетевая комиссия, уже включая priority fee
+        tipLamports:
+          type: integer
+          minimum: 0
+          description: Фактически выплаченный tip, отдельно от networkFeeLamports
+        solPriceUsd:
+          type:
+            - number
+            - 'null'
+          format: double
+          minimum: 0
+          description: Цена SOL на момент исполнения; null, если неизвестна
+        feesUsd:
+          type:
+            - number
+            - 'null'
+          format: double
+          minimum: 0
+          description: (networkFeeLamports + tipLamports) / 1000000000 * solPriceUsd; null, если оценка неизвестна
+    Order:
+      type: object
+      required:
+        - id
+        - intentId
+        - walletId
+        - mint
+        - side
+        - source
+        - copySettingsId
+        - positionId
+        - buyAmountSol
+        - sellQuantityRaw
+        - maxSlippage
+        - maxPriorityFeeLamports
+        - maxTipLamports
+        - status
+        - signature
+        - execution
+        - fees
+        - reason
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Идентификатор ордера в trading
+        intentId:
+          type: string
+          format: uuid
+          description: Один на экономическое намерение; для ручной сделки создаёт trading, для копирования приходит из tracking
+        walletId:
+          type: string
+          format: uuid
+        mint:
+          type: string
+        side:
+          type: string
+          enum:
+            - BUY
+            - SELL
+        source:
+          type: string
+          enum:
+            - MANUAL
+            - COPY
+        copySettingsId:
+          type:
+            - string
+            - 'null'
+          format: uuid
+          description: null для ручного ордера
+        positionId:
+          type:
+            - string
+            - 'null'
+          format: uuid
+          description: Для автопродажи известен; для ручных сделок и первой покупки может быть null — позицию определяет portfolio
+        buyAmountSol:
+          type:
+            - number
+            - 'null'
+          format: double
+          minimum: 0
+          description: Запрошенная сумма покупки; null для SELL
+        sellQuantityRaw:
+          type:
+            - string
+            - 'null'
+          pattern: ^[1-9][0-9]*$
+          description: Запрошенное количество продажи; null для BUY
+        maxSlippage:
+          type: number
+          format: double
+          description: Проскальзывание в процентах; 2 означает 2%
+          minimum: 0
+          maximum: 100
+        maxPriorityFeeLamports:
+          type: integer
+          minimum: 0
+          description: Максимальная суммарная priority fee в lamports; базовая сетевая комиссия оплачивается отдельно; 0 отключает priority fee
+        maxTipLamports:
+          type: integer
+          minimum: 0
+          description: Максимальный tip в lamports; 0 отключает tip
+        status:
+          type: string
+          enum:
+            - PENDING
+            - EXECUTED
+            - REJECTED
+            - FAILED
+          description: PENDING — принят, исполняется или результат неизвестен; EXECUTED — успех подтверждён finalized; REJECTED — отказ до отправки;
+            FAILED — окончательная ошибка или подтверждённое неисполнение после истечения срока
+        signature:
+          type:
+            - string
+            - 'null'
+          description: Подпись сохраняется до отправки; null, пока транзакция не подписана
+        execution:
+          oneOf:
+            - $ref: '#/components/schemas/Execution'
+            - type: 'null'
+          description: Результат только для EXECUTED; иначе null
+        fees:
+          oneOf:
+            - $ref: '#/components/schemas/Fees'
+            - type: 'null'
+          description: Фактические комиссии, в том числе при FAILED; null, пока результат неизвестен или транзакция не создавалась
+        reason:
+          type:
+            - string
+            - 'null'
+          description: Код причины REJECTED или FAILED; иначе null
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      description: Ордер неизменяемый после приёма. Повтор доставки команды не создаёт второй ордер. Таймаут RPC не переводит его в FAILED.
+      allOf:
+        - if:
+            properties:
+              status:
+                const: PENDING
+            required:
+              - status
+          then:
+            additionalProperties: true
+            properties:
+              execution:
+                type: 'null'
+              fees:
+                type: 'null'
+              reason:
+                type: 'null'
+        - if:
+            properties:
+              status:
+                const: EXECUTED
+            required:
+              - status
+          then:
+            additionalProperties: true
+            properties:
+              signature:
+                type: string
+              execution:
+                $ref: '#/components/schemas/Execution'
+              fees:
+                $ref: '#/components/schemas/Fees'
+              reason:
+                type: 'null'
+        - if:
+            properties:
+              status:
+                const: REJECTED
+            required:
+              - status
+          then:
+            additionalProperties: true
+            properties:
+              signature:
+                type: 'null'
+              execution:
+                type: 'null'
+              fees:
+                type: 'null'
+              reason:
+                type: string
+                minLength: 1
+        - if:
+            properties:
+              status:
+                const: FAILED
+            required:
+              - status
+          then:
+            additionalProperties: true
+            properties:
+              execution:
+                type: 'null'
+              fees:
+                $ref: '#/components/schemas/Fees'
+              reason:
+                type: string
+                minLength: 1
+    OrderPage:
+      type: object
+      required:
+        - content
+        - page
+        - size
+        - totalElements
+        - totalPages
+      properties:
+        content:
+          type: array
+          items:
+            $ref: '#/components/schemas/Order'
+        page:
+          type: integer
+          minimum: 0
+          description: Номер страницы, начиная с 0
+        size:
+          type: integer
+          minimum: 1
+          maximum: 100
+          description: Запрошенный размер страницы; фактическое число элементов — длина content
+        totalElements:
+          type: integer
+          minimum: 0
+          description: Число ордеров с учётом фильтров
+        totalPages:
+          type: integer
+          minimum: 0
+          description: Число страниц; 0, если элементов нет
+    WalletExecutionInfo:
+      type: object
+      required:
+        - walletId
+        - userId
+        - address
+        - canTrade
+        - balanceSol
+      properties:
+        walletId:
+          type: string
+          format: uuid
+        userId:
+          type: string
+          format: uuid
+          description: Владелец кошелька
+        address:
+          type: string
+        canTrade:
+          type: boolean
+          description: Кошелёк доступен для подписи; это не гарантия достаточного баланса для конкретной сделки
+        balanceSol:
+          type: number
+          format: double
+          minimum: 0
+          description: Текущий баланс SOL; неизвестный баланс возвращается как 503
+    Problem:
+      type: object
+      required:
+        - type
+        - title
+        - status
+        - detail
+      properties:
+        type:
+          type: string
+          format: uri
+        title:
+          type: string
+        status:
+          type: integer
+        detail:
+          type: string
