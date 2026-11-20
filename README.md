@@ -30,8 +30,6 @@
 
 TokenDiscovered — новый токен найден в пуле
 
-TokenScored — токен проанализирован, риск-скор присвоен
-
 PriceUpdated — цена токена изменилась
 
 LiquidityChanged — ликвидность пула изменилась
@@ -161,7 +159,7 @@ Delivery Status — статус доставки уведомления (sent, 
 | Название | analyzer-service |
 | Ответственность | добавляет информацию к market-data-service и оценивает риски, применяя различные эвристики |
 | Владеет данными | TokenAnalysis, RiskScore, RugFlag, HolderDistribution |
-| Предоставляет | REST API: GET /api/v1/analysis/\{mint\}; События: analysis.token.scored, analysis.rug.detected |
+| Предоставляет | REST API: GET /api/v1/analysis/\{mint\}; События: analysis.rug.detected |
 | Зависит от | market-data-service (события), RugCheck API (синхронно для обогащения) |
 | Нефункциональные требования | высокая доступность, обработка &gt; 1000 токенов в минуту, задержка для скоринга &lt; 2 секунд |
 | Обоснование границы | анализ — вычислительно тяжёлая операция, требует отдельного масштабирования;  Эвристики часто меняются, что делает разработку независимой; |
@@ -274,8 +272,7 @@ Delivery Status — статус доставки уведомления (sent, 
 | `md.price.tick` | `market-data-service` | `tracking-service`, `portfolio-service` | [PriceTick](api/market-data.asyncapi.yaml#L139) |
 | `md.token.discovered` | `market-data-service` | `analyzer-service` | [TokenDiscovered](api/market-data.asyncapi.yaml#L180) |
 | `md.liquidity.changed` | `market-data-service` | `analyzer-service` | [LiquidityChanged](api/market-data.asyncapi.yaml#L219) |
-| `analysis.token.scored` | `analyzer-service` | — | [TokenScored](api/analyzer.asyncapi.yaml#L296) |
-| `analysis.rug.detected` | `analyzer-service` | `notification-service` | [RugDetected](api/analyzer.asyncapi.yaml#L473) |
+| `analysis.rug.detected` | `analyzer-service` | `notification-service` | [RugDetected](api/analyzer.asyncapi.yaml#L237) |
 | `trade.executed` | `trading-service` | `tracking-service`, `portfolio-service`, `notification-service` | [TradeExecuted](api/trading.asyncapi.yaml#L500) |
 | `trade.failed` | `trading-service` | `tracking-service`, `portfolio-service`, `notification-service` | [TradeFailed](api/trading.asyncapi.yaml#L714) |
 | `portfolio.position.opened` | `portfolio-service` | `tracking-service` | [PositionOpened](api/portfolio.asyncapi.yaml#L690) |
