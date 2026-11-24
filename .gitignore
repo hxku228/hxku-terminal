@@ -1,0 +1,7 @@
+# служебные файлы macos
+.DS_Store
+
+# IntelliJ IDEA
+.idea/
+.idea-backup/
+*.iml
