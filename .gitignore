@@ -5,3 +5,6 @@
 .idea/
 .idea-backup/
 *.iml
+
+# Maven build output
+target/
