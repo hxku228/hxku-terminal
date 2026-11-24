@@ -25,3 +25,25 @@ jobs:
 
       - name: Проверить OpenAPI-контракты
         run: npx --yes @redocly/cli@2.77.0 lint api/*.openapi.yaml
+
+  asyncapi:
+    name: Проверка AsyncAPI
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Получить файлы репозитория
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Установить Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+
+      - name: Проверить AsyncAPI-контракты
+        run: |
+          for file in api/*.asyncapi.yaml; do
+            npx --yes @asyncapi/cli@6.3.1 validate "$file" || exit 1
+          done
