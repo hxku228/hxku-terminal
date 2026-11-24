@@ -11,6 +11,29 @@ permissions:
   contents: read
 
 jobs:
+  analyzer:
+    name: Сборка и тесты analyzer
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Получить файлы репозитория
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Установить Java
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+          cache-dependency-path: services/analyzer/pom.xml
+
+      - name: Собрать analyzer и запустить тесты
+        working-directory: services/analyzer
+        run: ./mvnw -B verify
+
   openapi:
     name: Проверка OpenAPI
     runs-on: ubuntu-latest
