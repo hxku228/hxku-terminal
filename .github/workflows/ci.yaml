@@ -7,11 +7,21 @@ permissions:
   contents: read
 
 jobs:
-  hello:
-    name: Первый запуск CI
+  openapi:
+    name: Проверка OpenAPI
     runs-on: ubuntu-latest
     timeout-minutes: 5
 
     steps:
-      - name: Вывести сообщение
-        run: echo "Первый workflow hxku-terminal работает!"
+      - name: Получить файлы репозитория
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Установить Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+
+      - name: Проверить OpenAPI-контракты
+        run: npx --yes @redocly/cli@2.77.0 lint api/*.openapi.yaml
