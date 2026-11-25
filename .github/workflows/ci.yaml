@@ -11,6 +11,42 @@ permissions:
   contents: read
 
 jobs:
+  publish-analyzer:
+    name: Публикация образа analyzer
+    needs: [analyzer, openapi, asyncapi]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Получить файлы репозитория
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Установить Java
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+          cache-dependency-path: services/analyzer/pom.xml
+
+      - name: Войти в GHCR
+        env:
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: printf '%s' "$GHCR_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+
+      - name: Собрать и опубликовать образ
+        working-directory: services/analyzer
+        run: >-
+          ./mvnw -B compile jib:build
+          -Djib.to.image="ghcr.io/${GITHUB_REPOSITORY,,}/analyzer:sha-${GITHUB_SHA}"
+          -Djib.container.labels="org.opencontainers.image.source=${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY},org.opencontainers.image.revision=${GITHUB_SHA}"
+
   analyzer:
     name: Сборка и тесты analyzer
     runs-on: ubuntu-latest
