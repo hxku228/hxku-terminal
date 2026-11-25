@@ -34,6 +34,10 @@ jobs:
         working-directory: services/analyzer
         run: ./mvnw -B verify
 
+      - name: Собрать Docker-образ analyzer
+        working-directory: services/analyzer
+        run: ./mvnw -B jib:dockerBuild
+
   openapi:
     name: Проверка OpenAPI
     runs-on: ubuntu-latest
