@@ -1,0 +1,4 @@
+services:
+  analyzer:
+    image: hxku/analyzer:0.0.1-SNAPSHOT
+    pull_policy: never
